@@ -1,0 +1,506 @@
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { format, parseISO } from "date-fns";
+import {
+  Plus,
+  Calendar as CalendarIcon,
+  Filter,
+  Users,
+  Building,
+  Info,
+} from "lucide-react";
+import Header from "@/components/Layout/Header";
+import Sidebar from "@/components/Layout/Sidebar";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import ExamForm from "@/components/Exams/ExamForm";
+import { useToast } from "@/hooks/use-toast";
+import {
+  mockExams,
+  mockClassrooms,
+  mockTeachers,
+  mockStudents,
+} from "@/lib/mockData";
+import { Exam } from "@/types";
+
+const ExamScheduling = () => {
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editingExam, setEditingExam] = useState<Exam | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
+  const [showStudents, setShowStudents] = useState(false);
+  const { toast } = useToast();
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [importedStudents, setImportedStudents] = useState(mockStudents);
+
+  interface ApiExam {
+    id: number;
+    module: string;
+    module_code?: string;
+    cycle: string;
+    filiere: string;
+    date_examen: string;
+    heure_debut: string;
+    heure_fin: string;
+    locaux?: string;
+    superviseurs?: string;
+    students?: string[];
+  }
+
+  const formatTime = (dateTimeString: string): string => {
+    if (!dateTimeString) return "";
+    try {
+      // Remove the 'T' and everything after '.' to handle different datetime formats
+      const cleanDateTime = dateTimeString.split(".")[0].replace("T", " ");
+      const date = new Date(cleanDateTime);
+      return format(date, "H:mm");
+    } catch (e) {
+      console.error("Error formatting time:", e);
+      return "";
+    }
+  };
+
+  // Define the API response type
+  interface ApiResponse {
+    status: string;
+    data: ApiExam[];
+  }
+
+  useEffect(() => {
+    const fetchExams = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/api/exams/latest");
+        const data: ApiResponse = await response.json();
+
+        if (data.status === "success") {
+          const formattedExams = data.data.slice(0, 5).map((apiExam) => ({
+            id: apiExam.id.toString(),
+            courseCode: apiExam.module_code || "",
+            courseName: apiExam.module || "",
+            module: apiExam.module || "",
+            cycle: apiExam.cycle || "",
+            filiere: apiExam.filiere || "",
+            date: apiExam.date_examen || "",
+            startTime: apiExam.heure_debut || "",
+            endTime: apiExam.heure_fin || 0,
+            classrooms: apiExam.locaux ? [apiExam.locaux] : [],
+            supervisors: apiExam.superviseurs ? [apiExam.superviseurs] : [],
+            students: apiExam.students || [],
+          }));
+
+          setExams(formattedExams);
+        } else {
+          throw new Error("Failed to fetch exams");
+        }
+      } catch (err) {
+        console.error("Error fetching exams:", err);
+        setError(err instanceof Error ? err.message : "An error occurred");
+        setExams(mockExams.slice(0, 5));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExams();
+  }, []);
+
+  const getStudentNames = (studentIds: string[]) => {
+    return studentIds.map((id) => {
+      const student = importedStudents.find((s) => s.id === id);
+      return student
+        ? `${student.firstName} ${student.lastName}`
+        : "Unknown Student";
+    });
+  };
+
+  const handleAddEditExam = (exam: Exam) => {
+    if (
+      !exam.cycle ||
+      !exam.filiere ||
+      !exam.module ||
+      !exam.date ||
+      !exam.startTime ||
+      !exam.duration ||
+      !exam.classrooms ||
+      !exam.supervisors
+    ) {
+      toast({
+        title: "Error",
+        description: "Invalid exam data. Please fill out all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingExam) {
+      setExams((prevExams) =>
+        prevExams.map((e) => (e.id === exam.id ? exam : e))
+      );
+      toast({
+        title: "Exam Updated",
+        description: `Exam has been updated successfully`,
+      });
+    } else {
+      const newExam = { ...exam, id: Date.now().toString() };
+      setExams((prevExams) => [...prevExams, newExam]);
+      toast({
+        title: "Exam Scheduled",
+        description: `Exam has been scheduled successfully`,
+      });
+    }
+    setEditingExam(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleEditExam = (exam: Exam) => {
+    setEditingExam(exam);
+    setIsDialogOpen(true);
+  };
+
+  const handleDeleteExam = async (id: string) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/exams/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.ok) {
+        // Only update the UI if the API call was successful
+        setExams((prevExams) => prevExams.filter((exam) => exam.id !== id));
+        toast({
+          title: "Exam Deleted",
+          description: "The exam has been removed from the schedule",
+          variant: "destructive",
+        });
+      } else {
+        // Handle API error
+        const errorData = await response.json();
+        toast({
+          title: "Error",
+          description: errorData.message || "Failed to delete the exam",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting exam:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while deleting the exam",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShowDetails = (exam: Exam) => {
+    setSelectedExam(exam);
+  };
+
+  const getClassroomNames = (classroomIds: string[]): string => {
+    return classroomIds
+      .map((id) => {
+        const classroom = mockClassrooms.find((c) => c.id === id);
+        return classroom ? classroom.name : "";
+      })
+      .filter(Boolean)
+      .join(", ");
+  };
+
+  const getTeacherNames = (teacherIds: string[]): string => {
+    return teacherIds
+      .map((id) => {
+        const teacher = mockTeachers.find((t) => t.id === id);
+        return teacher ? `${teacher.firstName} ${teacher.lastName}` : "";
+      })
+      .filter(Boolean)
+      .join(", ");
+  };
+
+  const getStudentCount = (studentIds: string[]): number => {
+    return studentIds.length;
+  };
+
+  return (
+    <div className="min-h-screen flex">
+      <Sidebar />
+      <div className="flex-1 flex flex-col">
+        <Header
+          title="Exam Scheduling"
+          subtitle="Schedule and manage exams"
+          actions={
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) setEditingExam(null);
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Schedule Exam
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingExam ? "Edit Exam" : "Schedule New Exam"}
+                  </DialogTitle>
+                </DialogHeader>
+                <ExamForm
+                  exam={editingExam || undefined}
+                  onSubmit={handleAddEditExam}
+                  onCancel={() => {
+                    setIsDialogOpen(false);
+                    setEditingExam(null);
+                  }}
+                  setSelectedStudents={setSelectedStudents}
+                />
+              </DialogContent>
+            </Dialog>
+          }
+        />
+        <div className="flex-1 p-4 sm:p-6 overflow-auto">
+          <Tabs defaultValue="grid">
+            <div className="flex justify-between items-center mb-4">
+              <TabsList>
+                <TabsTrigger value="grid">Grid View</TabsTrigger>
+                <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+              </TabsList>
+              <Button variant="outline" size="sm">
+                <Filter className="h-4 w-4 mr-2" />
+                Filter
+              </Button>
+            </div>
+
+            <TabsContent value="grid" className="space-y-4">
+              {loading ? (
+                <div className="flex items-center justify-center h-64">
+                  <p>Loading exams...</p>
+                </div>
+              ) : error ? (
+                <div className="flex items-center justify-center h-64 text-red-500">
+                  <p>{error}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {exams.map((exam) => (
+                      <Card key={exam.id}>
+                        <CardHeader>
+                          <div className="flex justify-between">
+                            <div>
+                              <CardTitle>Exam de {exam.module}</CardTitle>
+                              <CardDescription>
+                                {exam.courseCode}
+                              </CardDescription>
+                            </div>
+                            <Badge>
+                              {exam.date
+                                ? format(new Date(exam.date), "MMM d, yyyy")
+                                : "Invalid Date"}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm font-medium flex items-center gap-1">
+                                <CalendarIcon className="h-4 w-4" />
+                                Time & Duration
+                              </p>
+                              <p className="text-sm">
+                                {formatTime(exam.startTime)} -{" "}
+                                {formatTime(exam.endTime)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium flex items-center gap-1">
+                                <Building className="h-4 w-4" />
+                                Classrooms
+                              </p>
+                              <p className="text-sm">
+                                {getClassroomNames(exam.classrooms)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm font-medium flex items-center gap-1">
+                                <Users className="h-4 w-4" />
+                                Supervisors
+                              </p>
+                              <p className="text-sm">
+                                {getTeacherNames(exam.supervisors)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium flex items-center gap-1">
+                                <Users className="h-4 w-4" />
+                                Students
+                              </p>
+                              <p className="text-sm">
+                                {getStudentCount(exam.students)} students
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                        <CardFooter className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditExam(exam)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteExam(exam.id)}
+                          >
+                            Delete
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleShowDetails(exam)}
+                          >
+                            <Info className="h-4 w-4 mr-2" />
+                            Detail
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {exams.length === 0 && !loading && (
+                    <div className="flex flex-col items-center justify-center h-64">
+                      <CalendarIcon className="h-10 w-10 text-muted-foreground mb-4" />
+                      <h3 className="font-medium">No exams scheduled</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Start by scheduling an exam for this session
+                      </p>
+                      <Button onClick={() => setIsDialogOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Schedule Exam
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="calendar">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Calendar View</CardTitle>
+                  <CardDescription>
+                    This view will show a calendar with all scheduled exams
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-96 flex items-center justify-center border rounded-md">
+                    <p className="text-muted-foreground">
+                      Calendar view will be implemented in a future update
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+
+      {/* Details Modal */}
+      <Dialog
+        open={!!selectedExam}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedExam(null);
+            setShowStudents(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Exam Details</DialogTitle>
+          </DialogHeader>
+          {selectedExam && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium">Module: {selectedExam.module}</h3>
+                <p>Cycle: {selectedExam.cycle}</p>
+                <p>Filière: {selectedExam.filiere}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="font-medium">Date:</p>
+                  <p>
+                    {selectedExam.date &&
+                      format(new Date(selectedExam.date), "PPP")}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium">Time:</p>
+                  <p>
+                    {selectedExam.startTime} ({selectedExam.duration} minutes)
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className="font-medium">Classrooms:</p>
+                <p>{getClassroomNames(selectedExam.classrooms)}</p>
+              </div>
+              <div>
+                <p className="font-medium">Supervisors:</p>
+                <p>{getTeacherNames(selectedExam.supervisors)}</p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowStudents(!showStudents)}
+              >
+                {showStudents ? "Hide Students" : "Show Students"}
+              </Button>
+              {showStudents && (
+                <div className="space-y-2">
+                  <p className="font-medium">
+                    Students ({selectedExam.students.length}):
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {getStudentNames(selectedExam.students).map(
+                      (student, index) => (
+                        <li key={index} className="text-sm">
+                          {student}
+                        </li>
+                      )
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default ExamScheduling;
