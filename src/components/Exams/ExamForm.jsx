@@ -21,12 +21,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import {
-  mockClassrooms,
-  mockTeachers,
-  mockStudents,
-  mockFilieres,
-} from "@/lib/mockData";
+import { mockTeachers, mockStudents, mockFilieres } from "@/lib/mockData";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +39,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { createExam, updateExam } from "../../services/examService";
 import ImportCSV from "../Students/ImportCSV";
+import { getAvailableClassrooms } from "@/services/classroomService";
 
 const formSchema = z.object({
   cycle: z.string().min(1, "Le cycle est requis"),
@@ -73,7 +69,27 @@ const ExamForm = ({
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [showImportCSV, setShowImportCSV] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [availableClassrooms, setAvailableClassrooms] = useState([]);
   const { toast } = useToast();
+
+  // Load available classrooms
+  useEffect(() => {
+    const loadClassrooms = async () => {
+      try {
+        const classrooms = await getAvailableClassrooms();
+        setAvailableClassrooms(classrooms);
+      } catch (error) {
+        console.error("Error loading classrooms:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les salles disponibles",
+          variant: "destructive",
+        });
+      }
+    };
+
+    loadClassrooms();
+  }, [toast]);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -120,9 +136,13 @@ const ExamForm = ({
       console.log("Form submitted with values:", values);
 
       // Map selected student IDs to their complete information from importedStudentsLocal
-      const studentsToSubmit = selectedStudentsLocal.map(studentId => 
-        importedStudentsLocal.find(student => student.studentId === studentId)
-      ).filter(student => student !== undefined);
+      const studentsToSubmit = selectedStudentsLocal
+        .map((studentId) =>
+          importedStudentsLocal.find(
+            (student) => student.studentId === studentId
+          )
+        )
+        .filter((student) => student !== undefined);
 
       // Validate required fields
       if (
@@ -156,7 +176,7 @@ const ExamForm = ({
         endTime: values.endTime,
         classrooms: values.classrooms,
         supervisors: values.supervisors,
-        students: studentsToSubmit
+        students: studentsToSubmit,
       };
 
       console.log("Submitting exam with data:", completeExam);
@@ -215,25 +235,25 @@ const ExamForm = ({
   const handleImportComplete = (importedStudents) => {
     // Store the complete student data
     setImportedStudentsLocal(importedStudents);
-    
+
     // Store just the IDs for selection tracking
     const importedStudentIds = importedStudents.map((student) => student.id);
     setSelectedStudentsLocal(importedStudentIds);
-    
+
     // Update the form values with the student IDs
-    form.setValue('students', importedStudentIds);
-    
+    form.setValue("students", importedStudentIds);
+
     if (setImportedStudents) {
       setImportedStudents(importedStudents);
     }
-    
+
     // Also update the parent component's selected students if provided
     if (setSelectedStudents) {
       setSelectedStudents(importedStudentIds);
     }
-    
+
     setShowImportCSV(false);
-    
+
     toast({
       title: "Étudiants importés",
       description: `${importedStudents.length} étudiants ont été importés avec succès`,
@@ -429,45 +449,43 @@ const ExamForm = ({
                       Les locaux
                     </FormLabel>
                     <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                      {mockClassrooms
-                        .filter((classroom) => classroom.isAvailable)
-                        .map((classroom) => (
-                          <div
-                            key={classroom.id}
-                            className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
-                          >
-                            <div className="flex items-start gap-2">
-                              <Checkbox
-                                id={`classroom-${classroom.id}`}
-                                checked={field.value.includes(classroom.id)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    field.onChange([
-                                      ...field.value,
-                                      classroom.id,
-                                    ]);
-                                  } else {
-                                    field.onChange(
-                                      field.value.filter(
-                                        (id) => id !== classroom.id
-                                      )
-                                    );
-                                  }
-                                }}
-                              />
-                              <label
-                                htmlFor={`classroom-${classroom.id}`}
-                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                              >
-                                {classroom.name} ({classroom.building}) -
-                                Capacité: {classroom.capacity}
-                              </label>
-                            </div>
-                            <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                              Disponible
-                            </span>
+                      {availableClassrooms.map((classroom) => (
+                        <div
+                          key={classroom.id}
+                          className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                        >
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              id={`classroom-${classroom.id}`}
+                              checked={field.value.includes(classroom.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  field.onChange([
+                                    ...field.value,
+                                    classroom.id,
+                                  ]);
+                                } else {
+                                  field.onChange(
+                                    field.value.filter(
+                                      (id) => id !== classroom.id
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`classroom-${classroom.id}`}
+                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {classroom.name} ({classroom.building}) -
+                              Capacité: {classroom.capacity}
+                            </label>
                           </div>
-                        ))}
+                          <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
+                            Disponible
+                          </span>
+                        </div>
+                      ))}
                     </div>
                     <FormMessage />
                   </FormItem>
