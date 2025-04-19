@@ -52,7 +52,7 @@ const formSchema = z.object({
   startTime: z.string().min(1, "L'heure de début est requise"),
   endTime: z.string().min(1, "L'heure de fin est requise"),
   classrooms: z.array(z.string()).min(1, "Au moins une salle est requise"),
-  supervisors: z.array(z.string()).min(1, "Au moins un superviseur est requis"),
+  supervisors: z.array(z.number()).min(1, "Au moins un superviseur est requis"),
   students: z.array(z.string()),
 });
 
@@ -172,7 +172,7 @@ const ExamForm = ({
           startTime: exam.startTime,
           endTime: exam.endTime,
           classrooms: exam.classrooms,
-          supervisors: exam.supervisors,
+          supervisors: exam.supervisors ? exam.supervisors.map(id => Number(id)) : [],
           students: exam.students,
         }
       : {
@@ -188,6 +188,11 @@ const ExamForm = ({
         },
   });
 
+  // Debug: Log form state changes
+  useEffect(() => {
+    console.log("Current form values:", form.getValues());
+  }, [form.watch()]);
+
   // Sync selectedStudentsLocal with form's students field
   useEffect(() => {
     form.setValue("students", selectedStudentsLocal);
@@ -200,10 +205,10 @@ const ExamForm = ({
     }
   }, [selectedStudentsLocal, setSelectedStudents]);
 
-  const handleSubmit = async (values) => {
+  const onFormSubmit = async (values) => {
+    console.log("🚀 Form submission started with values:", values);
     try {
       setLoading(true);
-      console.log("Form submitted with values:", values);
 
       // Map selected student IDs to their complete information from importedStudentsLocal
       const studentsToSubmit = selectedStudentsLocal
@@ -214,6 +219,21 @@ const ExamForm = ({
         )
         .filter((student) => student !== undefined);
 
+      // Map selected supervisor IDs to their complete information
+      const supervisorsToSubmit = values.supervisors
+        .map((supervisorId) =>
+          supervisorsByDepartment.find(
+            (supervisor) => supervisor.id === supervisorId
+          )
+        )
+        .filter((supervisor) => supervisor !== undefined);
+
+      console.log("Mapped students:", studentsToSubmit);
+      console.log("Mapped supervisors:", supervisorsToSubmit);
+
+      // Format date as YYYY-MM-DD
+      const formattedDate = format(values.date, "yyyy-MM-dd");
+
       // Validate required fields
       if (
         !values.cycle ||
@@ -223,10 +243,20 @@ const ExamForm = ({
         !values.startTime ||
         !values.endTime ||
         !values.classrooms?.length ||
-        !values.supervisors?.length ||
+        !supervisorsToSubmit?.length ||
         !studentsToSubmit?.length
       ) {
-        console.error("Missing required fields");
+        console.error("Missing required fields:", {
+          cycle: values.cycle,
+          filiere: values.filiere,
+          module: values.module,
+          date: values.date,
+          startTime: values.startTime,
+          endTime: values.endTime,
+          classrooms: values.classrooms,
+          supervisors: supervisorsToSubmit,
+          students: studentsToSubmit,
+        });
         toast({
           title: "Erreur de validation",
           description: "Veuillez remplir tous les champs obligatoires",
@@ -236,39 +266,50 @@ const ExamForm = ({
         return;
       }
 
-      const completeExam = {
-        id: exam?.id || `exam-${Date.now()}`,
+      // Get classroom names for the locaux field
+      const classroomNames = values.classrooms
+        .map(id => availableClassrooms.find(c => c.id === id)?.name || id)
+        .join(", ");
+
+      // Format the data according to the backend's expected format
+      const examData = {
         cycle: values.cycle,
         filiere: values.filiere,
         module: values.module,
-        date: values.date,
-        startTime: values.startTime,
-        endTime: values.endTime,
-        classrooms: values.classrooms,
-        supervisors: values.supervisors,
-        students: studentsToSubmit,
+        date_examen: formattedDate,
+        heure_debut: values.startTime,
+        heure_fin: values.endTime,
+        locaux: classroomNames,
+        superviseurs: supervisorsToSubmit.map(s => `${s.prenom} ${s.nom}`).join(", "),
+        classroom_ids: values.classrooms.map(id => parseInt(id, 10)),
+        students: studentsToSubmit.map(student => ({
+          studentId: student.studentId || student.id,
+          firstName: student.firstName || student.prenom,
+          lastName: student.lastName || student.nom,
+          email: student.email || `${student.studentId || student.id}@example.com`,
+          program: student.program || values.filiere
+        }))
       };
 
-      console.log("Submitting exam with data:", completeExam);
+      console.log("Submitting exam data:", examData);
 
       let result;
       if (exam?.id) {
-        // Update existing exam
-        result = await updateExam(exam.id, completeExam);
+        result = await updateExam(exam.id, examData);
         toast({
           title: "Examen mis à jour",
           description: `L'examen de ${values.module} a été mis à jour avec succès`,
         });
       } else {
-        // Create new exam
-        result = await createExam(completeExam);
+        result = await createExam(examData);
         toast({
           title: "Examen créé",
           description: `L'examen de ${values.module} a été créé avec succès`,
         });
       }
 
-      // If we have a parent onSubmit callback, call it with the result
+      console.log("API response:", result);
+
       if (onSubmit) {
         onSubmit(result);
       }
@@ -282,6 +323,15 @@ const ExamForm = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleFormError = (errors) => {
+    console.error("Form validation errors:", errors);
+    toast({
+      title: "Erreur de validation",
+      description: "Veuillez vérifier tous les champs requis",
+      variant: "destructive",
+    });
   };
 
   const handleStudentSelection = (studentId) => {
@@ -336,12 +386,15 @@ const ExamForm = ({
 
   return (
     <Form {...form}>
-      <div className="flex flex-col h-full max-h-[85vh]">
-        <div className="flex-1 overflow-y-auto pr-4 pb-6">
-          <form
-            onSubmit={form.handleSubmit(handleSubmit)}
-            className="space-y-6"
-          >
+      <form 
+        onSubmit={(e) => {
+          console.log("🔵 Form submit event triggered");
+          form.handleSubmit(onFormSubmit, handleFormError)(e);
+        }} 
+        className="space-y-6"
+      >
+        <div className="flex flex-col h-full max-h-[85vh]">
+          <div className="flex-1 overflow-y-auto pr-4 pb-6">
             {/* Top section with basic exam info */}
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
               <h3 className="text-lg font-medium mb-4">Informations de base</h3>
@@ -569,20 +622,20 @@ const ExamForm = ({
                 control={form.control}
                 name="supervisors"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
+                  <FormItem className="space-y-4">
+                    <FormLabel className="flex items-center gap-1 text-lg font-medium">
                       <Users className="h-5 w-5" />
                       Les superviseurs
                     </FormLabel>
-                    <div className="mt-2">
-                      <h4 className="text-sm font-medium text-slate-700">
+                    <div>
+                      <h4 className="text-sm font-medium text-slate-700 mb-2">
                         Sélectionnez un département
                       </h4>
                       <Select
                         onValueChange={(value) => setSelectedDepartment(value)}
                         value={selectedDepartment}
                       >
-                        <SelectTrigger className="w-full mt-2 bg-white">
+                        <SelectTrigger className="w-full bg-white">
                           <SelectValue placeholder="Sélectionnez un département" />
                         </SelectTrigger>
                         <SelectContent>
@@ -606,24 +659,23 @@ const ExamForm = ({
                     </div>
 
                     {selectedDepartment && (
-                      <div className="mt-4">
-                        <h4 className="text-sm font-medium text-slate-700">
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-700 mb-2">
                           Superviseurs disponibles
                         </h4>
                         {loadingSupervisors ? (
-                          <div className="mt-2 text-center text-slate-500">
+                          <div className="text-center text-slate-500 py-2">
                             Chargement des superviseurs...
                           </div>
                         ) : supervisorsByDepartment.length > 0 ? (
-                          <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                          <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
                             {supervisorsByDepartment.map((supervisor) => (
                               <div
                                 key={supervisor.id}
-                                className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                                className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
                               >
-                                <div className="flex items-start gap-2">
+                                <FormControl>
                                   <Checkbox
-                                    id={`supervisor-${supervisor.id}`}
                                     checked={field.value.includes(supervisor.id)}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
@@ -637,60 +689,64 @@ const ExamForm = ({
                                       }
                                     }}
                                   />
-                                  <label
-                                    htmlFor={`supervisor-${supervisor.id}`}
-                                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                  >
-                                    {supervisor.prenom} {supervisor.nom} ({supervisor.type || "Non spécifié"})
-                                  </label>
-                                </div>
+                                </FormControl>
+                                <label
+                                  className="text-sm leading-none cursor-pointer flex-1"
+                                >
+                                  {supervisor.prenom} {supervisor.nom} ({supervisor.type || "Non spécifié"})
+                                </label>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          <div className="mt-2 text-center text-slate-500">
+                          <div className="text-center text-slate-500 py-2">
                             Aucun superviseur trouvé pour ce département
                           </div>
                         )}
                       </div>
                     )}
 
-                    <div className="mt-4 space-y-2 max-h-40 overflow-y-auto pr-2">
-                      <h4 className="text-sm font-medium text-slate-700 sticky top-0 bg-slate-50 py-1">
-                        Superviseurs sélectionnés ({field.value.length})
-                      </h4>
-                      {supervisorsByDepartment
-                        .filter((supervisor) => field.value.includes(supervisor.id))
-                        .map((supervisor) => (
-                          <div
-                            key={supervisor.id}
-                            className="flex items-start gap-2 p-2 rounded-md hover:bg-slate-100"
-                          >
-                            <Checkbox
-                              id={`selected-supervisor-${supervisor.id}`}
-                              checked={field.value.includes(supervisor.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  field.onChange([...field.value, supervisor.id]);
-                                } else {
-                                  field.onChange(
-                                    field.value.filter(
-                                      (id) => id !== supervisor.id
-                                    )
-                                  );
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`selected-supervisor-${supervisor.id}`}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {supervisor.prenom} {supervisor.nom} ({supervisor.type || "Non spécifié"})
-                            </label>
-                          </div>
-                        ))}
-                    </div>
-                    <FormMessage />
+                    {field.value.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-700 mb-2 sticky top-0 bg-slate-50 py-1">
+                          Superviseurs sélectionnés ({field.value.length})
+                        </h4>
+                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                          {supervisorsByDepartment
+                            .filter((supervisor) => field.value.includes(supervisor.id))
+                            .map((supervisor) => (
+                              <div
+                                key={supervisor.id}
+                                className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
+                              >
+                                <FormControl>
+                                  <Checkbox
+                                    checked={true}
+                                    onCheckedChange={() => {
+                                      field.onChange(
+                                        field.value.filter(
+                                          (id) => id !== supervisor.id
+                                        )
+                                      );
+                                    }}
+                                  />
+                                </FormControl>
+                                <label
+                                  className="text-sm leading-none cursor-pointer flex-1"
+                                >
+                                  {supervisor.prenom} {supervisor.nom} ({supervisor.type || "Non spécifié"})
+                                </label>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {field.value.length === 0 && (
+                      <FormMessage>
+                        Veuillez sélectionner au moins un superviseur
+                      </FormMessage>
+                    )}
                   </FormItem>
                 )}
               />
@@ -741,33 +797,41 @@ const ExamForm = ({
                 )}
               />
             </div>
-          </form>
-        </div>
+          </div>
 
-        {/* Form Footer - Fixed at bottom */}
-        <div className="flex justify-end gap-2 mt-4 py-4 border-t bg-white sticky bottom-0">
-          <Button
-            variant="outline"
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-          >
-            Annuler
-          </Button>
-          <Button
-            type="submit"
-            onClick={form.handleSubmit(handleSubmit)}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {loading
-              ? "Chargement..."
-              : exam
-              ? "Mettre à jour l'examen"
-              : "Planifier l'examen"}
-          </Button>
+          {/* Form Footer - Fixed at bottom */}
+          <div className="flex justify-end gap-2 mt-4 py-4 border-t bg-white sticky bottom-0">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={(e) => {
+                console.log("Cancel button clicked");
+                onCancel?.(e);
+              }}
+              disabled={loading}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading}
+              onClick={() => console.log("🔴 Submit button clicked")}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <span className="animate-spin">⌛</span>
+                  Chargement...
+                </div>
+              ) : exam ? (
+                "Mettre à jour l'examen"
+              ) : (
+                "Planifier l'examen"
+              )}
+            </Button>
+          </div>
         </div>
-      </div>
+      </form>
     </Form>
   );
 };

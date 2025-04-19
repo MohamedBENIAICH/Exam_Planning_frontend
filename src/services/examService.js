@@ -106,34 +106,15 @@ export const getExamById = async (id) => {
  */
 export const createExam = async (examData) => {
   try {
-    // Format the data according to the backend API requirements
-    const formattedData = {
-      cycle: examData.cycle,
-      filiere: examData.filiere,
-      module: examData.module,
-      date_examen:
-        examData.date instanceof Date
-          ? examData.date.toISOString().split("T")[0]
-          : examData.date,
-      heure_debut: examData.startTime,
-      heure_fin: examData.endTime,
-      locaux: Array.isArray(examData.classrooms)
-        ? examData.classrooms.join(",")
-        : examData.classrooms,
-      superviseurs: Array.isArray(examData.supervisors)
-        ? examData.supervisors.join(",")
-        : examData.supervisors,
-      students: examData.students, // Send the complete student objects array
-    };
-
-    console.log("Sending formatted data to API:", formattedData);
+    // The data should already be in the correct format from the form
+    console.log("Sending data to API:", examData);
 
     const response = await fetch(`${API_URL}/exams`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(formattedData),
+      body: JSON.stringify(examData),
     });
 
     if (!response.ok) {
@@ -142,7 +123,9 @@ export const createExam = async (examData) => {
       throw new Error(errorData.message || `Error: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log("API response:", result);
+    return result;
   } catch (error) {
     console.error("Failed to create exam:", error);
     throw error;
