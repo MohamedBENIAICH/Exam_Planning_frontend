@@ -172,7 +172,11 @@ const ExamForm = ({
           startTime: exam.startTime,
           endTime: exam.endTime,
           classrooms: exam.classrooms,
-          supervisors: exam.supervisors ? exam.supervisors.map(id => Number(id)) : [],
+          supervisors: exam.supervisors ? exam.supervisors.map(id => {
+            // Handle both string and number IDs
+            const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+            return isNaN(numId) ? 0 : numId;
+          }) : [],
           students: exam.students,
         }
       : {

@@ -145,22 +145,34 @@ export const updateExam = async (id, examData) => {
       cycle: examData.cycle,
       filiere: examData.filiere,
       module: examData.module,
-      date_examen:
-        examData.date instanceof Date
-          ? examData.date.toISOString().split("T")[0]
-          : examData.date,
-      heure_debut: examData.startTime,
-      heure_fin: examData.endTime,
-      locaux: Array.isArray(examData.classrooms)
-        ? examData.classrooms.join(",")
-        : examData.classrooms,
-      superviseurs: Array.isArray(examData.supervisors)
-        ? examData.supervisors.join(",")
-        : examData.supervisors,
+      date_examen: examData.date_examen,
+      heure_debut: examData.heure_debut,
+      heure_fin: examData.heure_fin,
+      locaux: examData.locaux,
+      superviseurs: examData.superviseurs,
+      // Ensure classroom_ids is an array of integers
+      classroom_ids: Array.isArray(examData.classroom_ids)
+        ? examData.classroom_ids
+            .filter((id) => id && id !== 0)
+            .map((id) => parseInt(id, 10))
+        : [],
+      // Format students data
       students: Array.isArray(examData.students)
-        ? examData.students.join(",")
-        : examData.students,
+        ? examData.students.map((student) => ({
+            studentId: student.studentId || student.id,
+            firstName: student.firstName || student.prenom,
+            lastName: student.lastName || student.nom,
+            email:
+              student.email || `${student.studentId || student.id}@example.com`,
+            program: student.program || examData.filiere,
+          }))
+        : [],
     };
+
+    // Validate the formatted data
+    if (!formattedData.classroom_ids.length) {
+      throw new Error("At least one classroom must be selected");
+    }
 
     console.log("Sending formatted data to API for update:", formattedData);
 

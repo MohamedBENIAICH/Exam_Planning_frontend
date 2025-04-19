@@ -27,6 +27,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import ExamForm from "@/components/Exams/ExamForm";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +51,8 @@ const ExamScheduling = () => {
   const { toast } = useToast();
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [importedStudents, setImportedStudents] = useState(mockStudents);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
 
   interface ApiExam {
     id: number;
@@ -131,25 +135,6 @@ const ExamScheduling = () => {
   };
 
   const handleAddEditExam = async (exam: Exam) => {
-    if (
-      !exam.cycle ||
-      !exam.filiere ||
-      !exam.module ||
-      !exam.date ||
-      !exam.startTime ||
-      !exam.endTime ||
-      !exam.classrooms ||
-      !exam.supervisors
-    ) {
-      toast({
-        title: "Success",
-        description: "Exam has been scheduled successfully",
-        variant: "default",
-        className: "bg-green-50 border-green-200 text-green-800",
-      });
-      return;
-    }
-
     try {
       if (editingExam) {
         // Format the date to YYYY-MM-DD
@@ -235,7 +220,22 @@ const ExamScheduling = () => {
 
         // Update the exams state with the response from the API
         setExams((prevExams) =>
-          prevExams.map((e) => (e.id === exam.id ? exam : e))
+          prevExams.map((e) =>
+            e.id === exam.id
+              ? {
+                  ...e,
+                  cycle: exam.cycle,
+                  filiere: exam.filiere,
+                  module: exam.module,
+                  date: formattedDate,
+                  startTime: formattedStartTime,
+                  endTime: formattedEndTime,
+                  classrooms: exam.classrooms,
+                  supervisors: exam.supervisors,
+                  students: exam.students,
+                }
+              : e
+          )
         );
 
         toast({
@@ -306,7 +306,16 @@ const ExamScheduling = () => {
         description: "An error occurred while deleting the exam",
         variant: "destructive",
       });
+    } finally {
+      // Close the delete confirmation dialog
+      setIsDeleteDialogOpen(false);
+      setExamToDelete(null);
     }
+  };
+
+  const handleDeleteClick = (exam: Exam) => {
+    setExamToDelete(exam);
+    setIsDeleteDialogOpen(true);
   };
 
   const handleShowDetails = (exam: Exam) => {
@@ -474,7 +483,7 @@ const ExamScheduling = () => {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => handleDeleteExam(exam.id)}
+                            onClick={() => handleDeleteClick(exam)}
                           >
                             Delete
                           </Button>
@@ -597,6 +606,35 @@ const ExamScheduling = () => {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the exam for{" "}
+              {examToDelete?.module}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => examToDelete && handleDeleteExam(examToDelete.id)}
+              disabled={loading}
+            >
+              {loading ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
