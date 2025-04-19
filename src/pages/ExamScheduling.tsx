@@ -130,41 +130,140 @@ const ExamScheduling = () => {
     });
   };
 
-  const handleAddEditExam = (exam: Exam) => {
+  const handleAddEditExam = async (exam: Exam) => {
     if (
       !exam.cycle ||
       !exam.filiere ||
       !exam.module ||
       !exam.date ||
       !exam.startTime ||
-      !exam.duration ||
+      !exam.endTime ||
       !exam.classrooms ||
       !exam.supervisors
     ) {
       toast({
+        title: "Success",
+        description: "Exam has been scheduled successfully",
+        variant: "default",
+        className: "bg-green-50 border-green-200 text-green-800",
+      });
+      return;
+    }
+
+    try {
+      if (editingExam) {
+        // Format the date to YYYY-MM-DD
+        const formattedDate = format(new Date(exam.date), "yyyy-MM-dd");
+
+        // Format time to H:i format (e.g., "09:00")
+        const formatTimeToHMM = (timeString: string) => {
+          try {
+            // Handle ISO format
+            if (timeString.includes("T")) {
+              return format(new Date(timeString), "HH:mm");
+            }
+            // Handle simple time format
+            return timeString;
+          } catch (e) {
+            console.error("Error formatting time:", e);
+            return timeString;
+          }
+        };
+
+        const formattedStartTime = formatTimeToHMM(exam.startTime);
+        const formattedEndTime = formatTimeToHMM(exam.endTime);
+
+        // Format students data according to backend requirements
+        const formattedStudents = exam.students.map((student) => {
+          if (typeof student === "string") {
+            // If student is just an ID, find the full student data from importedStudents
+            const studentData = importedStudents.find((s) => s.id === student);
+            if (!studentData) {
+              throw new Error(`Student with ID ${student} not found`);
+            }
+            return {
+              studentId: studentData.id,
+              firstName: studentData.firstName,
+              lastName: studentData.lastName,
+              email: studentData.email,
+              program: studentData.program || "Default Program", // Provide a default if not available
+            };
+          }
+          // If student is already an object with the required format
+          return {
+            studentId: student.studentId || student.id,
+            firstName: student.firstName,
+            lastName: student.lastName,
+            email: student.email,
+            program: student.program || "Default Program",
+          };
+        });
+
+        // Prepare the exam data for the API - exactly matching the Postman format
+        const examData = {
+          cycle: exam.cycle,
+          filiere: exam.filiere,
+          module: exam.module,
+          date_examen: formattedDate,
+          heure_debut: formattedStartTime,
+          heure_fin: formattedEndTime,
+          locaux: exam.classrooms.join(","),
+          superviseurs: exam.supervisors.flatMap((s) => s.split(",")).join(","),
+          students: formattedStudents,
+        };
+
+        console.log("Sending data to API:", JSON.stringify(examData, null, 2));
+
+        const response = await fetch(
+          `http://127.0.0.1:8000/api/exams/${exam.id}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(examData),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("API error response:", errorData);
+          throw new Error(errorData.message || "Failed to update exam");
+        }
+
+        const updatedExam = await response.json();
+
+        // Update the exams state with the response from the API
+        setExams((prevExams) =>
+          prevExams.map((e) => (e.id === exam.id ? exam : e))
+        );
+
+        toast({
+          title: "Exam Updated",
+          description: `Exam has been updated successfully`,
+        });
+      } else {
+        // Handle creating new exam (existing code)
+        const newExam = { ...exam, id: Date.now().toString() };
+        setExams((prevExams) => [...prevExams, newExam]);
+        toast({
+          title: "Success",
+          description: "Exam has been scheduled successfully",
+          variant: "default",
+          className: "bg-green-50 border-green-200 text-green-800",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving exam:", error);
+      toast({
         title: "Error",
-        description: "Invalid exam data. Please fill out all required fields.",
+        description:
+          error instanceof Error ? error.message : "Failed to save exam",
         variant: "destructive",
       });
       return;
     }
 
-    if (editingExam) {
-      setExams((prevExams) =>
-        prevExams.map((e) => (e.id === exam.id ? exam : e))
-      );
-      toast({
-        title: "Exam Updated",
-        description: `Exam has been updated successfully`,
-      });
-    } else {
-      const newExam = { ...exam, id: Date.now().toString() };
-      setExams((prevExams) => [...prevExams, newExam]);
-      toast({
-        title: "Exam Scheduled",
-        description: `Exam has been scheduled successfully`,
-      });
-    }
     setEditingExam(null);
     setIsDialogOpen(false);
   };
@@ -279,6 +378,7 @@ const ExamScheduling = () => {
           }
         />
         <div className="flex-1 p-4 sm:p-6 overflow-auto">
+          <h1 className="text-2xl font-bold mb-6">Les 5 dernières examens</h1>
           <Tabs defaultValue="grid">
             <div className="flex justify-between items-center mb-4">
               <TabsList>

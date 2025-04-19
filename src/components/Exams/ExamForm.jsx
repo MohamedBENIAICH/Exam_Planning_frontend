@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { mockTeachers, mockStudents, mockFilieres } from "@/lib/mockData";
+import { mockStudents, mockFilieres } from "@/lib/mockData";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { createExam, updateExam } from "../../services/examService";
 import ImportCSV from "../Students/ImportCSV";
 import { getAvailableClassrooms } from "@/services/classroomService";
+import { getSupervisorsByDepartment, getDepartments } from "@/services/supervisorService";
 
 const formSchema = z.object({
   cycle: z.string().min(1, "Le cycle est requis"),
@@ -70,6 +71,10 @@ const ExamForm = ({
   const [showImportCSV, setShowImportCSV] = useState(false);
   const [loading, setLoading] = useState(false);
   const [availableClassrooms, setAvailableClassrooms] = useState([]);
+  const [supervisorsByDepartment, setSupervisorsByDepartment] = useState([]);
+  const [loadingSupervisors, setLoadingSupervisors] = useState(false);
+  const [departments, setDepartments] = useState([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(false);
   const { toast } = useToast();
 
   // Load available classrooms
@@ -90,6 +95,71 @@ const ExamForm = ({
 
     loadClassrooms();
   }, [toast]);
+
+  // Load departments
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        setLoadingDepartments(true);
+        const response = await getDepartments();
+        if (response.status === 'success') {
+          setDepartments(response.data);
+        } else {
+          toast({
+            title: "Erreur",
+            description: "Impossible de charger les départements",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error loading departments:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les départements",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingDepartments(false);
+      }
+    };
+
+    loadDepartments();
+  }, [toast]);
+
+  // Fetch supervisors when department changes
+  useEffect(() => {
+    const fetchSupervisors = async () => {
+      if (!selectedDepartment) {
+        setSupervisorsByDepartment([]);
+        return;
+      }
+
+      try {
+        setLoadingSupervisors(true);
+        const response = await getSupervisorsByDepartment(selectedDepartment);
+        if (response.status === 'success') {
+          setSupervisorsByDepartment(response.data);
+        } else {
+          toast({
+            title: "Erreur",
+            description: "Impossible de charger les superviseurs",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error loading supervisors:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les superviseurs",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingSupervisors(false);
+      }
+    };
+
+    fetchSupervisors();
+  }, [selectedDepartment, toast]);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -506,40 +576,7 @@ const ExamForm = ({
                     </FormLabel>
                     <div className="mt-2">
                       <h4 className="text-sm font-medium text-slate-700">
-                        Superviseurs administratifs
-                      </h4>
-                      <Select
-                        onValueChange={(value) => {
-                          if (field.value.includes(value)) {
-                            field.onChange(
-                              field.value.filter((id) => id !== value)
-                            );
-                          } else {
-                            field.onChange([...field.value, value]);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full mt-2 bg-white">
-                          <SelectValue placeholder="Sélectionnez un superviseur administratif" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {mockTeachers
-                            .filter(
-                              (teacher) => teacher.type === "administratif"
-                            )
-                            .map((teacher) => (
-                              <SelectItem key={teacher.id} value={teacher.id}>
-                                {teacher.firstName} {teacher.lastName} (
-                                {teacher.department})
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="mt-4">
-                      <h4 className="text-sm font-medium text-slate-700">
-                        Superviseurs normaux
+                        Sélectionnez un département
                       </h4>
                       <Select
                         onValueChange={(value) => setSelectedDepartment(value)}
@@ -549,50 +586,72 @@ const ExamForm = ({
                           <SelectValue placeholder="Sélectionnez un département" />
                         </SelectTrigger>
                         <SelectContent>
-                          {Array.from(
-                            new Set(
-                              mockTeachers.map((teacher) => teacher.department)
-                            )
-                          ).map((department) => (
-                            <SelectItem key={department} value={department}>
-                              {department}
-                            </SelectItem>
-                          ))}
+                          {loadingDepartments ? (
+                            <div className="p-2 text-center text-slate-500">
+                              Chargement des départements...
+                            </div>
+                          ) : departments.length > 0 ? (
+                            departments.map((department) => (
+                              <SelectItem key={department} value={department}>
+                                {department}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-center text-slate-500">
+                              Aucun département disponible
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
 
                     {selectedDepartment && (
                       <div className="mt-4">
-                        <Select
-                          onValueChange={(value) => {
-                            if (field.value.includes(value)) {
-                              field.onChange(
-                                field.value.filter((id) => id !== value)
-                              );
-                            } else {
-                              field.onChange([...field.value, value]);
-                            }
-                          }}
-                        >
-                          <SelectTrigger className="w-full mt-2 bg-white">
-                            <SelectValue placeholder="Sélectionnez un superviseur normal" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {mockTeachers
-                              .filter(
-                                (teacher) =>
-                                  teacher.type === "normal" &&
-                                  teacher.department === selectedDepartment
-                              )
-                              .map((teacher) => (
-                                <SelectItem key={teacher.id} value={teacher.id}>
-                                  {teacher.firstName} {teacher.lastName} (
-                                  {teacher.department})
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
+                        <h4 className="text-sm font-medium text-slate-700">
+                          Superviseurs disponibles
+                        </h4>
+                        {loadingSupervisors ? (
+                          <div className="mt-2 text-center text-slate-500">
+                            Chargement des superviseurs...
+                          </div>
+                        ) : supervisorsByDepartment.length > 0 ? (
+                          <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                            {supervisorsByDepartment.map((supervisor) => (
+                              <div
+                                key={supervisor.id}
+                                className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <Checkbox
+                                    id={`supervisor-${supervisor.id}`}
+                                    checked={field.value.includes(supervisor.id)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...field.value, supervisor.id]);
+                                      } else {
+                                        field.onChange(
+                                          field.value.filter(
+                                            (id) => id !== supervisor.id
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`supervisor-${supervisor.id}`}
+                                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                  >
+                                    {supervisor.prenom} {supervisor.nom} ({supervisor.type || "Non spécifié"})
+                                  </label>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mt-2 text-center text-slate-500">
+                            Aucun superviseur trouvé pour ce département
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -600,34 +659,33 @@ const ExamForm = ({
                       <h4 className="text-sm font-medium text-slate-700 sticky top-0 bg-slate-50 py-1">
                         Superviseurs sélectionnés ({field.value.length})
                       </h4>
-                      {mockTeachers
-                        .filter((teacher) => field.value.includes(teacher.id))
-                        .map((teacher) => (
+                      {supervisorsByDepartment
+                        .filter((supervisor) => field.value.includes(supervisor.id))
+                        .map((supervisor) => (
                           <div
-                            key={teacher.id}
+                            key={supervisor.id}
                             className="flex items-start gap-2 p-2 rounded-md hover:bg-slate-100"
                           >
                             <Checkbox
-                              id={`teacher-${teacher.id}`}
-                              checked={field.value.includes(teacher.id)}
+                              id={`selected-supervisor-${supervisor.id}`}
+                              checked={field.value.includes(supervisor.id)}
                               onCheckedChange={(checked) => {
                                 if (checked) {
-                                  field.onChange([...field.value, teacher.id]);
+                                  field.onChange([...field.value, supervisor.id]);
                                 } else {
                                   field.onChange(
                                     field.value.filter(
-                                      (id) => id !== teacher.id
+                                      (id) => id !== supervisor.id
                                     )
                                   );
                                 }
                               }}
                             />
                             <label
-                              htmlFor={`teacher-${teacher.id}`}
+                              htmlFor={`selected-supervisor-${supervisor.id}`}
                               className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                             >
-                              {teacher.firstName} {teacher.lastName} (
-                              {teacher.department})
+                              {supervisor.prenom} {supervisor.nom} ({supervisor.type || "Non spécifié"})
                             </label>
                           </div>
                         ))}
