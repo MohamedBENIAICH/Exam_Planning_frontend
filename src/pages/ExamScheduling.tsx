@@ -65,7 +65,21 @@ const ExamScheduling = () => {
     heure_fin: string;
     locaux?: string;
     superviseurs?: string;
-    students?: string[];
+    students?: Array<{
+      id: number;
+      nom: string;
+      prenom: string;
+      numero_etudiant: string;
+      email: string;
+      filiere: string;
+      niveau: string;
+      created_at: string;
+      updated_at: string;
+      pivot: {
+        exam_id: number;
+        student_id: number;
+      };
+    }>;
   }
 
   const formatTime = (dateTimeString: string): string => {
@@ -106,7 +120,9 @@ const ExamScheduling = () => {
             endTime: apiExam.heure_fin || 0,
             classrooms: apiExam.locaux ? [apiExam.locaux] : [],
             supervisors: apiExam.superviseurs ? [apiExam.superviseurs] : [],
-            students: apiExam.students || [],
+            students: apiExam.students
+              ? apiExam.students.map((student) => student.id.toString())
+              : [],
           }));
 
           setExams(formattedExams);
@@ -127,10 +143,22 @@ const ExamScheduling = () => {
 
   const getStudentNames = (studentIds: string[]) => {
     return studentIds.map((id) => {
+      // Find the student in the importedStudents array
       const student = importedStudents.find((s) => s.id === id);
-      return student
-        ? `${student.firstName} ${student.lastName}`
-        : "Unknown Student";
+      if (student) {
+        return `${student.firstName} ${student.lastName}`;
+      }
+
+      // If not found in importedStudents, try to find in the exam's students array
+      const examStudent = exams
+        .find((exam) => exam.students && exam.students.includes(id))
+        ?.students?.find((s) => s.id.toString() === id);
+
+      if (examStudent) {
+        return `${examStudent.prenom} ${examStudent.nom}`;
+      }
+
+      return "Unknown Student";
     });
   };
 
@@ -322,27 +350,39 @@ const ExamScheduling = () => {
     setSelectedExam(exam);
   };
 
-  const getClassroomNames = (classroomIds: string[]): string => {
+  const getClassroomNames = (classroomIds: string[] | undefined): string => {
+    if (!classroomIds || !Array.isArray(classroomIds)) {
+      return "No classrooms assigned";
+    }
+
     return classroomIds
       .map((id) => {
         const classroom = mockClassrooms.find((c) => c.id === id);
-        return classroom ? classroom.name : "";
+        return classroom ? classroom.name : id;
       })
       .filter(Boolean)
       .join(", ");
   };
 
-  const getTeacherNames = (teacherIds: string[]): string => {
+  const getTeacherNames = (teacherIds: string[] | undefined): string => {
+    if (!teacherIds || !Array.isArray(teacherIds)) {
+      return "No supervisors assigned";
+    }
+
     return teacherIds
       .map((id) => {
         const teacher = mockTeachers.find((t) => t.id === id);
-        return teacher ? `${teacher.firstName} ${teacher.lastName}` : "";
+        return teacher ? `${teacher.firstName} ${teacher.lastName}` : id;
       })
       .filter(Boolean)
       .join(", ");
   };
 
-  const getStudentCount = (studentIds: string[]): number => {
+  const getStudentCount = (studentIds: string[] | undefined): number => {
+    if (!studentIds || !Array.isArray(studentIds)) {
+      return 0;
+    }
+
     return studentIds.length;
   };
 
