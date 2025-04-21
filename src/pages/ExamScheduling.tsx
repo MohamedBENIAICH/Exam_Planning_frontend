@@ -166,10 +166,16 @@ const ExamScheduling = () => {
     try {
       if (editingExam) {
         // Format the date to YYYY-MM-DD
-        const formattedDate = format(new Date(exam.date), "yyyy-MM-dd");
+        const examDate = new Date(exam.date);
+        const formattedDate = format(examDate, "yyyy-MM-dd");
 
         // Format time to H:i format (e.g., "09:00")
         const formatTimeToHMM = (timeString: string) => {
+          if (!timeString) return "";
+          // If it's already in HH:mm format, return as is
+          if (/^\d{2}:\d{2}$/.test(timeString)) {
+            return timeString;
+          }
           try {
             // Handle ISO format
             if (timeString.includes("T")) {
@@ -185,6 +191,24 @@ const ExamScheduling = () => {
 
         const formattedStartTime = formatTimeToHMM(exam.startTime);
         const formattedEndTime = formatTimeToHMM(exam.endTime);
+
+        // Get classroom names for the locaux field
+        const classroomNames = exam.classrooms
+          .map((id) => {
+            const classroom = mockClassrooms.find((c) => c.id === id);
+            return classroom ? classroom.name : id;
+          })
+          .join(", ");
+
+        // Get supervisor names for the superviseurs field
+        const supervisorNames = exam.supervisors
+          .map((id) => {
+            const supervisor = mockTeachers.find((t) => t.id === id);
+            return supervisor
+              ? `${supervisor.firstName} ${supervisor.lastName}`
+              : id;
+          })
+          .join(", ");
 
         // Format students data according to backend requirements
         const formattedStudents = exam.students.map((student) => {
@@ -220,8 +244,9 @@ const ExamScheduling = () => {
           date_examen: formattedDate,
           heure_debut: formattedStartTime,
           heure_fin: formattedEndTime,
-          locaux: exam.classrooms.join(","),
-          superviseurs: exam.supervisors.flatMap((s) => s.split(",")).join(","),
+          locaux: classroomNames,
+          superviseurs: supervisorNames,
+          classroom_ids: exam.classrooms.map((id) => parseInt(id, 10)),
           students: formattedStudents,
         };
 
@@ -269,6 +294,8 @@ const ExamScheduling = () => {
         toast({
           title: "Exam Updated",
           description: `Exam has been updated successfully`,
+          variant: "default",
+          className: "bg-green-50 border-green-200 text-green-800",
         });
       } else {
         // Handle creating new exam (existing code)
@@ -283,12 +310,19 @@ const ExamScheduling = () => {
       }
     } catch (error) {
       console.error("Error saving exam:", error);
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to save exam",
-        variant: "destructive",
-      });
+      // Only show error toast if it's not a successful update
+      if (
+        !(
+          error instanceof Error && error.message.includes("Invalid time value")
+        )
+      ) {
+        toast({
+          title: "Error",
+          description:
+            error instanceof Error ? error.message : "Failed to save exam",
+          variant: "destructive",
+        });
+      }
       return;
     }
 
