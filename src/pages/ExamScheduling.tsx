@@ -8,6 +8,10 @@ import {
   Users,
   Building,
   Info,
+  ClockIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  UserIcon,
 } from "lucide-react";
 import Header from "@/components/Layout/Header";
 import Sidebar from "@/components/Layout/Sidebar";
@@ -53,6 +57,18 @@ const ExamScheduling = () => {
   const [importedStudents, setImportedStudents] = useState(mockStudents);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [examToDelete, setExamToDelete] = useState<Exam | null>(null);
+  const [fetchedStudents, setFetchedStudents] = useState<
+    Array<{
+      id: number;
+      nom: string;
+      prenom: string;
+      numero_etudiant: string;
+      email: string;
+      filiere: string;
+      niveau: string;
+    }>
+  >([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
 
   interface ApiExam {
     id: number;
@@ -141,24 +157,72 @@ const ExamScheduling = () => {
     fetchExams();
   }, []);
 
+  const fetchStudentsForExam = async (examId: string) => {
+    setIsLoadingStudents(true);
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/students/by-exam/${examId}`
+      );
+      const data = await response.json();
+
+      if (data.status === "success" && Array.isArray(data.data)) {
+        console.log(
+          `Fetched ${data.data.length} students for exam ID: ${examId}`
+        );
+        setFetchedStudents(data.data);
+      } else {
+        console.error("Failed to fetch students:", data);
+      }
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
+
+  const handleShowDetails = (exam: Exam) => {
+    setSelectedExam(exam);
+    fetchStudentsForExam(exam.id);
+  };
+
   const getStudentNames = (studentIds: string[]) => {
+    console.log("Processing student IDs:", studentIds);
+
+    // If we have fetched students, use them to display names
+    if (fetchedStudents.length > 0) {
+      return studentIds.map((id) => {
+        const student = fetchedStudents.find((s) => s.id.toString() === id);
+        if (student) {
+          return `${student.prenom} ${student.nom}`;
+        }
+        return `Student ${id}`;
+      });
+    }
+
+    // Fallback to the original logic if we don't have fetched students
     return studentIds.map((id) => {
+      console.log(`Looking for student with ID: ${id} (type: ${typeof id})`);
+
       // Find the student in the importedStudents array
-      const student = importedStudents.find((s) => s.id === id);
+      const student = importedStudents.find((s) => {
+        console.log(
+          `Comparing ${
+            s.id
+          } (type: ${typeof s.id}) with ${id} (type: ${typeof id})`
+        );
+        return s.id === id || s.id.toString() === id;
+      });
+
       if (student) {
+        console.log(
+          `Found student in importedStudents: ${student.firstName} ${student.lastName}`
+        );
         return `${student.firstName} ${student.lastName}`;
       }
 
-      // If not found in importedStudents, try to find in the exam's students array
-      const examStudent = exams
-        .find((exam) => exam.students && exam.students.includes(id))
-        ?.students?.find((s) => s.id.toString() === id);
-
-      if (examStudent) {
-        return `${examStudent.prenom} ${examStudent.nom}`;
-      }
-
-      return "Unknown Student";
+      // If we still haven't found the student, try to generate a mock name based on the ID
+      console.log(`No student found with ID: ${id}, generating mock name`);
+      return `Student ${id}`;
     });
   };
 
@@ -378,10 +442,6 @@ const ExamScheduling = () => {
   const handleDeleteClick = (exam: Exam) => {
     setExamToDelete(exam);
     setIsDeleteDialogOpen(true);
-  };
-
-  const handleShowDetails = (exam: Exam) => {
-    setSelectedExam(exam);
   };
 
   const getClassroomNames = (classroomIds: string[] | undefined): string => {
@@ -622,62 +682,136 @@ const ExamScheduling = () => {
           }
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Exam Details</DialogTitle>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-lg">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="text-xl font-semibold text-gray-800">
+              Exam Details
+            </DialogTitle>
+            {selectedExam && (
+              <p className="text-gray-500 font-medium">{selectedExam.module}</p>
+            )}
           </DialogHeader>
           {selectedExam && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium">Module: {selectedExam.module}</h3>
-                <p>Cycle: {selectedExam.cycle}</p>
-                <p>Filière: {selectedExam.filiere}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="font-medium">Date:</p>
-                  <p>
-                    {selectedExam.date &&
-                      format(new Date(selectedExam.date), "PPP")}
-                  </p>
+            <div className="space-y-6 py-2">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
+                      Program Information
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Cycle:</span>
+                        <span className="font-medium">
+                          {selectedExam.cycle}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Filière:</span>
+                        <span className="font-medium">
+                          {selectedExam.filiere}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
+                      Location
+                    </h3>
+                    <div className="space-y-1">
+                      <p className="font-medium text-gray-800">
+                        {getClassroomNames(selectedExam.classrooms)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium">Time:</p>
-                  <p>
-                    {selectedExam.startTime} ({selectedExam.duration} minutes)
-                  </p>
+
+                <div className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
+                      Schedule
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <div className="w-5 mr-2 text-gray-400">
+                          <CalendarIcon className="h-4 w-4" />
+                        </div>
+                        <span className="text-gray-800">
+                          {selectedExam.date &&
+                            format(new Date(selectedExam.date), "PPP")}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-5 mr-2 text-gray-400">
+                          <ClockIcon className="h-4 w-4" />
+                        </div>
+                        <span className="text-gray-800">
+                          {selectedExam.startTime} ({selectedExam.duration}{" "}
+                          minutes)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
+                      Supervision
+                    </h3>
+                    <div className="space-y-1">
+                      <p className="font-medium text-gray-800">
+                        {getTeacherNames(selectedExam.supervisors)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <p className="font-medium">Classrooms:</p>
-                <p>{getClassroomNames(selectedExam.classrooms)}</p>
+
+              <div className="pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowStudents(!showStudents)}
+                  className="w-full flex items-center justify-center gap-2 border-gray-300 hover:bg-gray-50"
+                >
+                  {showStudents ? (
+                    <>
+                      <ChevronUpIcon className="h-4 w-4" />
+                      Hide Student List
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDownIcon className="h-4 w-4" />
+                      Show Student List ({selectedExam.students.length})
+                    </>
+                  )}
+                </Button>
+
+                {showStudents && (
+                  <div className="mt-4 bg-gray-50 p-4 rounded-md">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-sm uppercase text-gray-500 font-medium">
+                        Students
+                      </h3>
+                      <span className="text-sm text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
+                        {selectedExam.students.length} total
+                      </span>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto pr-2">
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {getStudentNames(selectedExam.students).map(
+                          (student, index) => (
+                            <li
+                              key={index}
+                              className="text-sm py-1 px-2 border-b border-gray-100 flex items-center"
+                            >
+                              <UserIcon className="h-3 w-3 text-gray-400 mr-2" />
+                              {student}
+                            </li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div>
-                <p className="font-medium">Supervisors:</p>
-                <p>{getTeacherNames(selectedExam.supervisors)}</p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => setShowStudents(!showStudents)}
-              >
-                {showStudents ? "Hide Students" : "Show Students"}
-              </Button>
-              {showStudents && (
-                <div className="space-y-2">
-                  <p className="font-medium">
-                    Students ({selectedExam.students.length}):
-                  </p>
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {getStudentNames(selectedExam.students).map(
-                      (student, index) => (
-                        <li key={index} className="text-sm">
-                          {student}
-                        </li>
-                      )
-                    )}
-                  </ul>
-                </div>
-              )}
             </div>
           )}
         </DialogContent>
