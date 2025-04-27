@@ -267,9 +267,147 @@ const ExamScheduling = () => {
     });
   };
 
+  const updateClassroomAvailability = async (
+    classroomIds: string[] | undefined,
+    isAvailable: boolean
+  ) => {
+    try {
+      // Check if classroomIds is defined and is an array
+      if (!classroomIds || !Array.isArray(classroomIds)) {
+        console.warn("No classrooms to update availability for");
+        return;
+      }
+
+      // Log the raw classroom IDs for debugging
+      console.log("Raw classroom IDs received:", classroomIds);
+
+      // Filter out any non-numeric IDs and convert to numbers
+      const validClassroomIds = classroomIds
+        .map((id) => {
+          // If id is already a number, use it directly
+          if (typeof id === "number") {
+            return id;
+          }
+          // If id is a string that can be converted to a number, do so
+          const numericId = parseInt(id, 10);
+          if (!isNaN(numericId)) {
+            return numericId;
+          }
+          // If id is a string that can't be converted to a number, try to extract the numeric part
+          const match = id.match(/\d+/);
+          if (match) {
+            return parseInt(match[0], 10);
+          }
+          console.warn(`Could not extract numeric ID from: ${id}`);
+          return null;
+        })
+        .filter((id): id is number => id !== null);
+
+      if (validClassroomIds.length === 0) {
+        console.warn(
+          "No valid classroom IDs to update. Original IDs:",
+          classroomIds
+        );
+        return;
+      }
+
+      console.log(
+        `Starting availability update for ${validClassroomIds.length} classrooms:`,
+        validClassroomIds.map((id) => `Classroom ID: ${id}`),
+        `Setting availability to: ${isAvailable ? "available" : "unavailable"}`
+      );
+
+      const promises = validClassroomIds.map(async (id) => {
+        console.log(
+          `Processing classroom ${id}:`,
+          `Setting availability to ${isAvailable ? "available" : "unavailable"}`
+        );
+
+        const requestBody = {
+          disponible_pour_planification: isAvailable,
+        };
+
+        const response = await fetch(
+          `http://localhost:8000/api/classrooms/${id}/disponibilite`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(requestBody),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error(
+            `Failed to update classroom ${id} availability:`,
+            errorData
+          );
+          throw new Error(
+            `Failed to update classroom ${id} availability: ${
+              errorData.message || "Unknown error"
+            }`
+          );
+        }
+
+        const responseData = await response.json();
+        console.log(
+          `Successfully updated classroom ${id} availability:`,
+          responseData
+        );
+      });
+
+      await Promise.all(promises);
+      console.log(
+        "Completed availability updates for all classrooms:",
+        validClassroomIds.map((id) => `Classroom ID: ${id}`)
+      );
+    } catch (error) {
+      console.error("Error updating classroom availability:", error);
+      throw error;
+    }
+  };
+
   const handleAddEditExam = async (exam: Exam) => {
     try {
+      // Convert locaux to an array if it's a string
+      const classroomIds = exam.data?.locaux
+        ? Array.isArray(exam.data.locaux)
+          ? exam.data.locaux
+          : exam.data.locaux.split(",").map((id) => id.trim())
+        : [];
+
+      console.log("Full exam data structure:", {
+        exam,
+        classrooms: classroomIds,
+        classroomDetails: classroomIds.map((id) => ({
+          id,
+          type: typeof id,
+          isNumeric: !isNaN(Number(id)),
+          rawValue: id,
+        })),
+        examKeys: Object.keys(exam),
+        examValues: Object.values(exam),
+      });
+
       if (editingExam) {
+        console.log("Editing exam data:", {
+          oldExam: editingExam,
+          newExam: exam,
+          oldClassrooms: editingExam.data?.locaux,
+          newClassrooms: exam.data?.locaux,
+        });
+
+        // First, make the old classrooms available again
+        if (editingExam.data?.locaux) {
+          console.log(
+            "Making old classrooms available:",
+            editingExam.data.locaux.map((id) => `Classroom ID: ${id}`)
+          );
+          await updateClassroomAvailability(editingExam.data.locaux, true);
+        }
+
         // Format the date to YYYY-MM-DD
         const examDate = new Date(exam.date);
         const formattedDate = format(examDate, "yyyy-MM-dd");
@@ -298,7 +436,7 @@ const ExamScheduling = () => {
         const formattedEndTime = formatTimeToHMM(exam.endTime);
 
         // Get classroom names for the locaux field
-        const classroomNames = exam.classrooms
+        const classroomNames = exam.data?.locaux
           .map((id) => {
             const classroom = mockClassrooms.find((c) => c.id === id);
             return classroom ? classroom.name : id;
@@ -351,7 +489,7 @@ const ExamScheduling = () => {
           heure_fin: formattedEndTime,
           locaux: classroomNames,
           superviseurs: supervisorNames,
-          classroom_ids: exam.classrooms.map((id) => parseInt(id, 10)),
+          classroom_ids: exam.data?.locaux.map((id) => parseInt(id, 10)),
           students: formattedStudents,
         };
 
@@ -374,7 +512,14 @@ const ExamScheduling = () => {
           throw new Error(errorData.message || "Failed to update exam");
         }
 
-        const updatedExam = await response.json();
+        // Make the new classrooms unavailable
+        if (exam.data?.locaux) {
+          console.log(
+            "Making new classrooms unavailable:",
+            exam.data.locaux.map((id) => `Classroom ID: ${id}`)
+          );
+          await updateClassroomAvailability(exam.data.locaux, false);
+        }
 
         // Update the exams state with the response from the API
         setExams((prevExams) =>
@@ -388,7 +533,7 @@ const ExamScheduling = () => {
                   date: formattedDate,
                   startTime: formattedStartTime,
                   endTime: formattedEndTime,
-                  classrooms: exam.classrooms,
+                  classrooms: exam.data?.locaux,
                   supervisors: exam.supervisors,
                   students: exam.students,
                 }
@@ -403,8 +548,47 @@ const ExamScheduling = () => {
           className: "bg-green-50 border-green-200 text-green-800",
         });
       } else {
-        // Handle creating new exam (existing code)
+        console.log("Creating new exam with data:", {
+          exam,
+          classrooms: classroomIds,
+          classroomDetails: classroomIds.map((id) => ({
+            id,
+            type: typeof id,
+            isNumeric: !isNaN(Number(id)),
+            rawValue: id,
+          })),
+        });
+
+        // Handle creating new exam
         const newExam = { ...exam, id: Date.now().toString() };
+
+        // Make classrooms unavailable for the new exam
+        if (classroomIds.length > 0) {
+          console.log(
+            "Making classrooms unavailable for new exam:",
+            classroomIds.map((id) => `Classroom ID: ${id}`)
+          );
+
+          // Ensure we're using numeric IDs
+          const numericClassroomIds = classroomIds
+            .map((id) => {
+              if (typeof id === "number") return id;
+              const numericId = parseInt(id, 10);
+              if (!isNaN(numericId)) return numericId;
+              const match = id.match(/\d+/);
+              return match ? parseInt(match[0], 10) : null;
+            })
+            .filter((id): id is number => id !== null);
+
+          if (numericClassroomIds.length === 0) {
+            console.error("No valid numeric classroom IDs found for new exam");
+            throw new Error("No valid classroom IDs provided for the exam");
+          }
+
+          console.log("Numeric classroom IDs to update:", numericClassroomIds);
+          await updateClassroomAvailability(numericClassroomIds, false);
+        }
+
         setExams((prevExams) => [...prevExams, newExam]);
         toast({
           title: "Success",
@@ -415,7 +599,6 @@ const ExamScheduling = () => {
       }
     } catch (error) {
       console.error("Error saving exam:", error);
-      // Only show error toast if it's not a successful update
       if (
         !(
           error instanceof Error && error.message.includes("Invalid time value")
@@ -442,6 +625,21 @@ const ExamScheduling = () => {
 
   const handleDeleteExam = async (id: string) => {
     try {
+      // Find the exam to get its classrooms
+      const examToDelete = exams.find((exam) => exam.id === id);
+      if (!examToDelete) {
+        throw new Error("Exam not found");
+      }
+
+      // First make classrooms available
+      if (examToDelete.data?.locaux) {
+        console.log(
+          "Making classrooms available after exam deletion:",
+          examToDelete.data.locaux.map((id) => `Classroom ID: ${id}`)
+        );
+        await updateClassroomAvailability(examToDelete.data.locaux, true);
+      }
+
       const response = await fetch(`http://127.0.0.1:8000/api/exams/${id}`, {
         method: "DELETE",
         headers: {
@@ -450,7 +648,6 @@ const ExamScheduling = () => {
       });
 
       if (response.ok) {
-        // Only update the UI if the API call was successful
         setExams((prevExams) => prevExams.filter((exam) => exam.id !== id));
         toast({
           title: "Exam Deleted",
@@ -458,7 +655,6 @@ const ExamScheduling = () => {
           variant: "destructive",
         });
       } else {
-        // Handle API error
         const errorData = await response.json();
         toast({
           title: "Error",
@@ -474,7 +670,6 @@ const ExamScheduling = () => {
         variant: "destructive",
       });
     } finally {
-      // Close the delete confirmation dialog
       setIsDeleteDialogOpen(false);
       setExamToDelete(null);
     }
@@ -617,7 +812,7 @@ const ExamScheduling = () => {
                                 Classrooms
                               </p>
                               <p className="text-sm">
-                                {getClassroomNames(exam.classrooms)}
+                                {getClassroomNames(exam.data?.locaux)}
                               </p>
                             </div>
                           </div>
@@ -756,7 +951,7 @@ const ExamScheduling = () => {
                     </h3>
                     <div className="space-y-1">
                       <p className="font-medium text-gray-800">
-                        {getClassroomNames(selectedExam.classrooms)}
+                        {getClassroomNames(selectedExam.data?.locaux)}
                       </p>
                     </div>
                   </div>
