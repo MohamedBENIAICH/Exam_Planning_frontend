@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { CalendarIcon, Clock, Users, Building, Upload } from "lucide-react";
+import Spinner from "@/components/ui/spinner";
 import {
   Form,
   FormControl,
@@ -41,10 +42,13 @@ import { createExam, updateExam } from "../../services/examService";
 import ImportCSV from "../Students/ImportCSV";
 import { getAvailableClassrooms } from "@/services/classroomService";
 import { getSupervisorsByDepartment, getDepartments } from "@/services/supervisorService";
+import { getFormations, getFilieresByFormation, getModulesByFormationAndFiliere } from "@/services/formationService";
+// import { Spinner } from "@/components/ui/spinner"; // Uncomment if you have a Spinner component
 
 const formSchema = z.object({
-  cycle: z.string().min(1, "Le cycle est requis"),
+  formation: z.string().min(1, "La formation est requise"),
   filiere: z.string().min(1, "La filière est requise"),
+  semester: z.string().min(1, "Le semestre est requis"),
   module: z.string().min(1, "Le module est requis"),
   date: z.date({
     required_error: "La date d'examen est requise",
@@ -75,7 +79,69 @@ const ExamForm = ({
   const [loadingSupervisors, setLoadingSupervisors] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
+  const [formations, setFormations] = useState([]);
+  const [loadingFormations, setLoadingFormations] = useState(false);
+  const [filieres, setFilieres] = useState([]);
+  const [loadingFilieres, setLoadingFilieres] = useState(false);
+  const [modules, setModules] = useState([]);
+  const [loadingModules, setLoadingModules] = useState(false);
   const { toast } = useToast();
+  const [assignments, setAssignments] = useState(null);
+
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: exam
+      ? {
+          formation: exam.formation,
+          filiere: exam.filiere,
+          semester: exam.semester || "",
+          module: exam.module,
+          date: exam.date ? new Date(exam.date) : new Date(),
+          startTime: exam.startTime,
+          endTime: exam.endTime,
+          classrooms: exam.classrooms,
+          supervisors: exam.supervisors ? exam.supervisors.map(id => {
+            // Handle both string and number IDs
+            const numId = typeof id === 'string' ? parseInt(id, 10) : id;
+            return isNaN(numId) ? 0 : numId;
+          }) : [],
+          students: exam.students,
+        }
+      : {
+          formation: "",
+          filiere: "",
+          semester: "",
+          module: "",
+          date: new Date(),
+          startTime: "09:00",
+          endTime: "11:00",
+          classrooms: [],
+          supervisors: [],
+          students: [],
+        },
+  });
+
+  // Load formations
+  useEffect(() => {
+    const loadFormations = async () => {
+      try {
+        setLoadingFormations(true);
+        const formationsData = await getFormations();
+        setFormations(formationsData);
+      } catch (error) {
+        console.error("Error loading formations:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les formations",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingFormations(false);
+      }
+    };
+
+    loadFormations();
+  }, [toast]);
 
   // Load available classrooms
   useEffect(() => {
@@ -161,36 +227,68 @@ const ExamForm = ({
     fetchSupervisors();
   }, [selectedDepartment, toast]);
 
-  const form = useForm({
-    resolver: zodResolver(formSchema),
-    defaultValues: exam
-      ? {
-          cycle: exam.cycle,
-          filiere: exam.filiere,
-          module: exam.module,
-          date: exam.date ? new Date(exam.date) : new Date(),
-          startTime: exam.startTime,
-          endTime: exam.endTime,
-          classrooms: exam.classrooms,
-          supervisors: exam.supervisors ? exam.supervisors.map(id => {
-            // Handle both string and number IDs
-            const numId = typeof id === 'string' ? parseInt(id, 10) : id;
-            return isNaN(numId) ? 0 : numId;
-          }) : [],
-          students: exam.students,
-        }
-      : {
-          cycle: "",
-          filiere: "",
-          module: "",
-          date: new Date(),
-          startTime: "09:00",
-          endTime: "11:00",
-          classrooms: [],
-          supervisors: [],
-          students: [],
-        },
-  });
+  // Load filieres when formation changes
+  useEffect(() => {
+    const selectedFormation = form.watch("formation");
+    const loadFilieres = async () => {
+      if (!selectedFormation) {
+        setFilieres([]);
+        return;
+      }
+
+      try {
+        setLoadingFilieres(true);
+        const filieresData = await getFilieresByFormation(selectedFormation);
+        setFilieres(filieresData);
+      } catch (error) {
+        console.error("Error loading filieres:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les filières",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingFilieres(false);
+      }
+    };
+
+    loadFilieres();
+  }, [form.watch("formation"), toast]);
+
+  // Load modules when formation, filiere, or semester changes
+  useEffect(() => {
+    const selectedFormation = form.watch("formation");
+    const selectedFiliere = form.watch("filiere");
+    const selectedSemester = form.watch("semester");
+
+    const loadModules = async () => {
+      if (!selectedFormation || !selectedFiliere || !selectedSemester) {
+        setModules([]);
+        return;
+      }
+
+      try {
+        setLoadingModules(true);
+        const modulesData = await getModulesByFormationAndFiliere(
+          selectedFormation,
+          selectedFiliere,
+          selectedSemester
+        );
+        setModules(modulesData);
+      } catch (error) {
+        console.error("Error loading modules:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les modules",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingModules(false);
+      }
+    };
+
+    loadModules();
+  }, [form.watch("formation"), form.watch("filiere"), form.watch("semester"), toast]);
 
   // Debug: Log form state changes
   useEffect(() => {
@@ -223,6 +321,8 @@ const ExamForm = ({
         )
         .filter((student) => student !== undefined);
 
+      console.log("studentsToSubmit:", studentsToSubmit);
+
       // Map selected supervisor IDs to their complete information
       const supervisorsToSubmit = values.supervisors
         .map((supervisorId) =>
@@ -240,8 +340,9 @@ const ExamForm = ({
 
       // Validate required fields
       if (
-        !values.cycle ||
+        !values.formation ||
         !values.filiere ||
+        !values.semester ||
         !values.module ||
         !values.date ||
         !values.startTime ||
@@ -251,8 +352,9 @@ const ExamForm = ({
         !studentsToSubmit?.length
       ) {
         console.error("Missing required fields:", {
-          cycle: values.cycle,
+          formation: values.formation,
           filiere: values.filiere,
+          semester: values.semester,
           module: values.module,
           date: values.date,
           startTime: values.startTime,
@@ -277,8 +379,9 @@ const ExamForm = ({
 
       // Format the data according to the backend's expected format
       const examData = {
-        cycle: values.cycle,
+        formation: values.formation,
         filiere: values.filiere,
+        semestre: values.semester,
         module: values.module,
         date_examen: formattedDate,
         heure_debut: values.startTime,
@@ -316,6 +419,47 @@ const ExamForm = ({
 
       if (onSubmit) {
         onSubmit(result);
+      }
+
+      // After creating the exam, immediately call the assignment endpoint
+      try {
+        // Use the exam ID from the result (adjust if your API returns the ID differently)
+        const examId = result?.id || result?.data?.id;
+        if (examId) {
+          console.log("Assigning students to classrooms:", {
+            classroom_ids: values.classrooms.map(Number),
+            student_numeros: studentsToSubmit.map(s => String(s.studentId || s.numero_etudiant || s.id)),
+          });
+          const assignmentResponse = await fetch(
+            `http://localhost:8000/api/exams/${examId}/assignments`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                classroom_ids: values.classrooms.map(Number), // keep as numbers
+                student_numeros: studentsToSubmit.map(s => String(s.studentId || s.numero_etudiant || s.id)),
+              }),
+            }
+          );
+          const assignmentData = await assignmentResponse.json();
+          console.log("Assignment API response:", assignmentData);
+          if (assignmentResponse.ok) {
+            toast({
+              title: "Affectation réussie",
+              description: "Les étudiants ont été assignés à leurs salles et places.",
+            });
+          } else {
+            throw new Error(assignmentData.message || "Erreur lors de l'affectation des étudiants.");
+          }
+        }
+      } catch (err) {
+        toast({
+          title: "Erreur d'affectation",
+          description: err.message,
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error saving exam:", error);
@@ -388,6 +532,13 @@ const ExamForm = ({
     setShowImportCSV(true);
   };
 
+  const showExamDetail = async (examId) => {
+    // ...open your detail dialog/drawer here...
+    const res = await fetch(`http://localhost:8000/api/exams/${examId}/assignments`);
+    const data = await res.json();
+    setAssignments(data.data.assignments); // or adjust as needed
+  };
+
   return (
     <Form {...form}>
       <form 
@@ -403,28 +554,43 @@ const ExamForm = ({
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
               <h3 className="text-lg font-medium mb-4">Informations de base</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Cycle Field */}
+                {/* Formation Field */}
                 <FormField
                   control={form.control}
-                  name="cycle"
+                  name="formation"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Cycle</FormLabel>
+                      <FormLabel>Formation</FormLabel>
                       <Select
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Reset filiere and module when formation changes
+                          form.setValue("filiere", "");
+                          form.setValue("module", "");
+                        }}
                         defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Sélectionnez un cycle" />
+                            <SelectValue placeholder="Sélectionnez une formation" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="tranc common">
-                            Tranc Common
-                          </SelectItem>
-                          <SelectItem value="ingénieure">Ingénieure</SelectItem>
-                          <SelectItem value="master">Master</SelectItem>
+                          {loadingFormations ? (
+                            <div className="p-2 text-center text-slate-500">
+                              Chargement des formations...
+                            </div>
+                          ) : formations.length > 0 ? (
+                            formations.map((formation) => (
+                              <SelectItem key={formation.id} value={formation.id.toString()}>
+                                {formation.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-center text-slate-500">
+                              Aucune formation disponible
+                            </div>
+                          )}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -440,8 +606,13 @@ const ExamForm = ({
                     <FormItem>
                       <FormLabel>Filière</FormLabel>
                       <Select
-                        onValueChange={field.onChange}
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Reset module when filiere changes
+                          form.setValue("module", "");
+                        }}
                         defaultValue={field.value}
+                        disabled={!form.getValues("formation")}
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
@@ -449,9 +620,54 @@ const ExamForm = ({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {mockFilieres.map((filiere) => (
-                            <SelectItem key={filiere.id} value={filiere.id}>
-                              {filiere.name}
+                          {loadingFilieres ? (
+                            <div className="p-2 text-center text-slate-500">
+                              Chargement des filières...
+                            </div>
+                          ) : filieres.length > 0 ? (
+                            filieres.map((filiere) => (
+                              <SelectItem key={filiere.id} value={filiere.id.toString()}>
+                                {filiere.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-center text-slate-500">
+                              {form.getValues("formation") 
+                                ? "Aucune filière disponible pour cette formation"
+                                : "Veuillez d'abord sélectionner une formation"}
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Semester Field */}
+                <FormField
+                  control={form.control}
+                  name="semester"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Semestre</FormLabel>
+                      <Select
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          // Reset module when semester changes
+                          form.setValue("module", "");
+                        }}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Sélectionnez un semestre" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6].map((semester) => (
+                            <SelectItem key={semester} value={semester.toString()}>
+                              Semestre {semester}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -468,13 +684,40 @@ const ExamForm = ({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Module</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Entrez le module"
-                          {...field}
-                          className="bg-white"
-                        />
-                      </FormControl>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        disabled={!form.getValues("formation") || !form.getValues("filiere") || !form.getValues("semester")}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Sélectionnez un module" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {loadingModules ? (
+                            <div className="p-2 text-center text-slate-500">
+                              Chargement des modules...
+                            </div>
+                          ) : modules.length > 0 ? (
+                            modules.map((module) => (
+                              <SelectItem key={module.id} value={module.id.toString()}>
+                                {module.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="p-2 text-center text-slate-500">
+                              {!form.getValues("formation") 
+                                ? "Veuillez d'abord sélectionner une formation"
+                                : !form.getValues("filiere")
+                                ? "Veuillez d'abord sélectionner une filière"
+                                : !form.getValues("semester")
+                                ? "Veuillez d'abord sélectionner un semestre"
+                                : "Aucun module disponible pour cette combinaison"}
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -562,62 +805,6 @@ const ExamForm = ({
                   )}
                 />
               </div>
-            </div>
-
-            {/* Classrooms Field */}
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-              <FormField
-                control={form.control}
-                name="classrooms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
-                      <Building className="h-5 w-5" />
-                      Les locaux
-                    </FormLabel>
-                    <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                      {availableClassrooms.map((classroom) => (
-                        <div
-                          key={classroom.id}
-                          className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
-                        >
-                          <div className="flex items-start gap-2">
-                            <Checkbox
-                              id={`classroom-${classroom.id}`}
-                              checked={field.value.includes(classroom.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  field.onChange([
-                                    ...field.value,
-                                    classroom.id,
-                                  ]);
-                                } else {
-                                  field.onChange(
-                                    field.value.filter(
-                                      (id) => id !== classroom.id
-                                    )
-                                  );
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`classroom-${classroom.id}`}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {classroom.name} ({classroom.building}) -
-                              Capacité: {classroom.capacity}
-                            </label>
-                          </div>
-                          <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                            Disponible
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             {/* Supervisors Field */}
@@ -803,6 +990,62 @@ const ExamForm = ({
             </div>
           </div>
 
+          {/* Classrooms Field */}
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+              <FormField
+                control={form.control}
+                name="classrooms"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
+                      <Building className="h-5 w-5" />
+                      Les locaux
+                    </FormLabel>
+                    <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                      {availableClassrooms.map((classroom) => (
+                        <div
+                          key={classroom.id}
+                          className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                        >
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              id={`classroom-${classroom.id}`}
+                              checked={field.value.includes(classroom.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  field.onChange([
+                                    ...field.value,
+                                    classroom.id,
+                                  ]);
+                                } else {
+                                  field.onChange(
+                                    field.value.filter(
+                                      (id) => id !== classroom.id
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`classroom-${classroom.id}`}
+                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {classroom.name} ({classroom.building}) -
+                              Capacité: {classroom.capacity}
+                            </label>
+                          </div>
+                          <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
+                            Disponible
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
           {/* Form Footer - Fixed at bottom */}
           <div className="flex justify-end gap-2 mt-4 py-4 border-t bg-white sticky bottom-0">
             <Button
@@ -824,7 +1067,7 @@ const ExamForm = ({
             >
               {loading ? (
                 <div className="flex items-center gap-2">
-                  <span className="animate-spin">⌛</span>
+                  <Spinner />
                   Chargement...
                 </div>
               ) : exam ? (

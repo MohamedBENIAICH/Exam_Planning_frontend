@@ -44,6 +44,18 @@ import {
 } from "@/lib/mockData";
 import { Exam } from "@/types";
 
+type Assignment = {
+  classroom_id: number;
+  classroom_name: string;
+  capacity: number;
+  students: {
+    student_id: number;
+    first_name: string;
+    last_name: string;
+    seat_number: number;
+  }[];
+};
+
 const ExamScheduling = () => {
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,18 +81,22 @@ const ExamScheduling = () => {
     }>
   >([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
 
   interface ApiExam {
     id: number;
-    module: string;
-    module_code?: string;
-    cycle: string;
+    formation: string;
     filiere: string;
+    module: string;
+    semestre: string;
     date_examen: string;
     heure_debut: string;
     heure_fin: string;
     locaux?: string;
     superviseurs?: string;
+    created_at: string;
+    updated_at: string;
     students?: Array<{
       id: number;
       nom: string;
@@ -101,13 +117,17 @@ const ExamScheduling = () => {
   const formatTime = (dateTimeString: string): string => {
     if (!dateTimeString) return "";
     try {
-      // Remove the 'T' and everything after '.' to handle different datetime formats
+      // For time strings like "09:00", just return them as is
+      if (/^\d{2}:\d{2}$/.test(dateTimeString)) {
+        return dateTimeString;
+      }
+      // For datetime strings, extract the time part
       const cleanDateTime = dateTimeString.split(".")[0].replace("T", " ");
       const date = new Date(cleanDateTime);
       return format(date, "H:mm");
     } catch (e) {
       console.error("Error formatting time:", e);
-      return "";
+      return dateTimeString || "";
     }
   };
 
@@ -126,14 +146,14 @@ const ExamScheduling = () => {
         if (data.status === "success") {
           const formattedExams = data.data.slice(0, 5).map((apiExam) => ({
             id: apiExam.id.toString(),
-            courseCode: apiExam.module_code || "",
+            courseCode: apiExam.module || "",
             courseName: apiExam.module || "",
             module: apiExam.module || "",
-            cycle: apiExam.cycle || "",
+            cycle: apiExam.formation || "",
             filiere: apiExam.filiere || "",
             date: apiExam.date_examen || "",
             startTime: apiExam.heure_debut || "",
-            endTime: apiExam.heure_fin || 0,
+            endTime: apiExam.heure_fin || "",
             classrooms: apiExam.locaux ? [apiExam.locaux] : [],
             supervisors: apiExam.superviseurs ? [apiExam.superviseurs] : [],
             students: apiExam.students
@@ -180,9 +200,30 @@ const ExamScheduling = () => {
     }
   };
 
+  const fetchAssignmentsForExam = async (examId: string) => {
+    setIsLoadingAssignments(true);
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/exams/${examId}/assignments`
+      );
+      const data = await response.json();
+      if (data.status === "success" && Array.isArray(data.data.assignments)) {
+        setAssignments(data.data.assignments);
+      } else {
+        setAssignments([]);
+      }
+    } catch (error) {
+      setAssignments([]);
+      console.error("Error fetching assignments:", error);
+    } finally {
+      setIsLoadingAssignments(false);
+    }
+  };
+
   const handleShowDetails = (exam: Exam) => {
     setSelectedExam(exam);
     fetchStudentsForExam(exam.id);
+    fetchAssignmentsForExam(exam.id);
   };
 
   const getStudentNames = (studentIds: string[]) => {
@@ -445,31 +486,23 @@ const ExamScheduling = () => {
   };
 
   const getClassroomNames = (classroomIds: string[] | undefined): string => {
-    if (!classroomIds || !Array.isArray(classroomIds)) {
+    if (
+      !classroomIds ||
+      !Array.isArray(classroomIds) ||
+      classroomIds.length === 0
+    ) {
       return "No classrooms assigned";
     }
 
-    return classroomIds
-      .map((id) => {
-        const classroom = mockClassrooms.find((c) => c.id === id);
-        return classroom ? classroom.name : id;
-      })
-      .filter(Boolean)
-      .join(", ");
+    return classroomIds.join(", ");
   };
 
   const getTeacherNames = (teacherIds: string[] | undefined): string => {
-    if (!teacherIds || !Array.isArray(teacherIds)) {
+    if (!teacherIds || !Array.isArray(teacherIds) || teacherIds.length === 0) {
       return "No supervisors assigned";
     }
 
-    return teacherIds
-      .map((id) => {
-        const teacher = mockTeachers.find((t) => t.id === id);
-        return teacher ? `${teacher.firstName} ${teacher.lastName}` : id;
-      })
-      .filter(Boolean)
-      .join(", ");
+    return teacherIds.join(", ");
   };
 
   const getStudentCount = (studentIds: string[] | undefined): number => {
@@ -558,7 +591,10 @@ const ExamScheduling = () => {
                             </div>
                             <Badge>
                               {exam.date
-                                ? format(new Date(exam.date), "MMM d, yyyy")
+                                ? format(
+                                    new Date(exam.date.split("T")[0]),
+                                    "MMM d, yyyy"
+                                  )
                                 : "Invalid Date"}
                             </Badge>
                           </div>
@@ -774,12 +810,13 @@ const ExamScheduling = () => {
                   {showStudents ? (
                     <>
                       <ChevronUpIcon className="h-4 w-4" />
-                      Hide Student List
+                      Masquer la liste des étudiants
                     </>
                   ) : (
                     <>
                       <ChevronDownIcon className="h-4 w-4" />
-                      Show Student List ({selectedExam.students.length})
+                      Afficher la liste des étudiants (
+                      {selectedExam.students.length})
                     </>
                   )}
                 </Button>
@@ -788,27 +825,42 @@ const ExamScheduling = () => {
                   <div className="mt-4 bg-gray-50 p-4 rounded-md">
                     <div className="flex justify-between items-center mb-3">
                       <h3 className="text-sm uppercase text-gray-500 font-medium">
-                        Students
+                        Étudiants & Places
                       </h3>
                       <span className="text-sm text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
-                        {selectedExam.students.length} total
+                        {selectedExam.students.length} au total
                       </span>
                     </div>
-                    <div className="max-h-64 overflow-y-auto pr-2">
-                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {getStudentNames(selectedExam.students).map(
-                          (student, index) => (
-                            <li
-                              key={index}
-                              className="text-sm py-1 px-2 border-b border-gray-100 flex items-center"
-                            >
-                              <UserIcon className="h-3 w-3 text-gray-400 mr-2" />
-                              {student}
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    </div>
+                    {isLoadingAssignments ? (
+                      <div>Chargement des affectations de places...</div>
+                    ) : assignments.length === 0 ? (
+                      <div>Aucune affectation de place trouvée.</div>
+                    ) : (
+                      <div className="space-y-4">
+                        {assignments.map((assignment) => (
+                          <div key={assignment.classroom_id} className="mb-2">
+                            <div className="font-semibold text-gray-700 mb-1">
+                              {assignment.classroom_name} (Capacité :{" "}
+                              {assignment.capacity})
+                            </div>
+                            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {assignment.students.map((student) => (
+                                <li
+                                  key={student.student_id}
+                                  className="text-sm py-1 px-2 border-b border-gray-100 flex items-center"
+                                >
+                                  <UserIcon className="h-3 w-3 text-gray-400 mr-2" />
+                                  {student.first_name} {student.last_name}
+                                  <span className="ml-auto text-xs text-gray-500">
+                                    Place : {student.seat_number}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

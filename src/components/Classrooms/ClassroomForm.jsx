@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,7 +14,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { createClassroom } from "@/services/classroomService";
+import { getDepartments } from "@/services/departmentService";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const formSchema = z.object({
   name: z.string().min(1, "Le nom de la salle est requis"),
@@ -35,6 +43,30 @@ const equipmentOptions = [
 
 const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
   const { toast } = useToast();
+  const [departments, setDepartments] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await getDepartments();
+        if (response.status === "success") {
+          setDepartments(response.data);
+        }
+      } catch (error) {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les départements",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, [toast]);
+
   const form = useForm({
     resolver: zodResolver(formSchema),
     defaultValues: classroom
@@ -159,9 +191,20 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Bâtiment</FormLabel>
-                <FormControl>
-                  <Input placeholder="ex: Bâtiment des Sciences" {...field} />
-                </FormControl>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sélectionnez un département" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept.id_departement} value={dept.nom_departement}>
+                        {dept.nom_departement}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
