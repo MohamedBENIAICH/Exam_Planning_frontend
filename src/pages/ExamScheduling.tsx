@@ -83,6 +83,10 @@ const ExamScheduling = () => {
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
+  const [moduleNames, setModuleNames] = useState<Record<string, string>>({});
+  const [classroomNames, setClassroomNames] = useState<Record<string, string>>(
+    {}
+  );
 
   interface ApiExam {
     id: number;
@@ -131,6 +135,32 @@ const ExamScheduling = () => {
     }
   };
 
+  const formatDate = (dateString: string | undefined): string => {
+    if (!dateString) {
+      console.log("No date string provided");
+      return "Invalid Date";
+    }
+
+    try {
+      // Parse the ISO date string
+      const date = new Date(dateString);
+
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.log("Invalid date string:", dateString);
+        return "Invalid Date";
+      }
+
+      // Format the date as YYYY-MM-DD
+      const formattedDate = format(date, "yyyy-MM-dd");
+      console.log("Formatted date:", formattedDate);
+      return formattedDate;
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Invalid Date";
+    }
+  };
+
   // Define the API response type
   interface ApiResponse {
     status: string;
@@ -144,23 +174,43 @@ const ExamScheduling = () => {
         const data: ApiResponse = await response.json();
 
         if (data.status === "success") {
-          const formattedExams = data.data.slice(0, 5).map((apiExam) => ({
-            id: apiExam.id.toString(),
-            courseCode: apiExam.module || "",
-            courseName: apiExam.module || "",
-            module: apiExam.module || "",
-            cycle: apiExam.formation || "",
-            filiere: apiExam.filiere || "",
-            date: apiExam.date_examen || "",
-            startTime: apiExam.heure_debut || "",
-            endTime: apiExam.heure_fin || "",
-            classrooms: apiExam.locaux ? [apiExam.locaux] : [],
-            supervisors: apiExam.superviseurs ? [apiExam.superviseurs] : [],
-            students: apiExam.students
-              ? apiExam.students.map((student) => student.id.toString())
-              : [],
-          }));
+          console.log("Raw API response for exams:", data.data);
 
+          const formattedExams = data.data.slice(0, 5).map((apiExam) => {
+            console.log("Processing exam:", {
+              id: apiExam.id,
+              locaux: apiExam.locaux,
+              type: typeof apiExam.locaux,
+            });
+
+            const classrooms = apiExam.locaux
+              ? apiExam.locaux.split(",").map((local) => local.trim())
+              : [];
+
+            console.log("Formatted classrooms:", {
+              original: apiExam.locaux,
+              split: classrooms,
+            });
+
+            return {
+              id: apiExam.id.toString(),
+              courseCode: apiExam.module || "",
+              courseName: apiExam.module || "",
+              module: apiExam.module || "",
+              cycle: apiExam.formation || "",
+              filiere: apiExam.filiere || "",
+              date: apiExam.date_examen || "",
+              startTime: apiExam.heure_debut || "",
+              endTime: apiExam.heure_fin || "",
+              classrooms: classrooms,
+              supervisors: apiExam.superviseurs ? [apiExam.superviseurs] : [],
+              students: apiExam.students
+                ? apiExam.students.map((student) => student.id.toString())
+                : [],
+            };
+          });
+
+          console.log("Formatted exams with classrooms:", formattedExams);
           setExams(formattedExams);
         } else {
           throw new Error("Failed to fetch exams");
@@ -680,16 +730,94 @@ const ExamScheduling = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  const fetchClassroomName = async (classroomId: string) => {
+    try {
+      if (!classroomId) {
+        console.log("Skipping fetch for empty classroom ID");
+        return "";
+      }
+      console.log(`Fetching classroom name for ID: ${classroomId}`);
+      const response = await fetch(
+        `http://localhost:8000/api/classrooms/${classroomId}`
+      );
+      const data = await response.json();
+      console.log(`Classroom name response for ID ${classroomId}:`, data);
+
+      if (data.status === "success" && data.data) {
+        console.log(
+          `Setting classroom name for ID ${classroomId}:`,
+          data.data.nom_du_local
+        );
+        setClassroomNames((prev) => {
+          const newNames = {
+            ...prev,
+            [classroomId]: data.data.nom_du_local,
+          };
+          console.log("Updated classroom names:", newNames);
+          return newNames;
+        });
+        return data.data.nom_du_local;
+      }
+      console.log(`No classroom name found for ID ${classroomId}`);
+      return classroomId;
+    } catch (error) {
+      console.error(
+        `Error fetching classroom name for ID ${classroomId}:`,
+        error
+      );
+      return classroomId;
+    }
+  };
+
+  // Update the useEffect to fetch classroom names when exams are loaded
+  useEffect(() => {
+    const fetchClassroomNames = async () => {
+      if (exams.length > 0) {
+        // Get all unique classroom IDs from all exams
+        const classroomIds = exams
+          .map((exam) => exam.data?.locaux)
+          .filter(Boolean)
+          .flat()
+          .filter((id): id is string => id !== undefined && id !== null);
+
+        const uniqueClassroomIds = [...new Set(classroomIds)];
+        console.log("Unique classroom IDs to fetch:", uniqueClassroomIds);
+
+        if (uniqueClassroomIds.length === 0) {
+          console.log("No valid classroom IDs found in exams");
+          return;
+        }
+
+        await Promise.all(
+          uniqueClassroomIds.map((id) => id && fetchClassroomName(id))
+        );
+      }
+    };
+
+    fetchClassroomNames();
+  }, [exams]);
+
   const getClassroomNames = (classroomIds: string[] | undefined): string => {
     if (
       !classroomIds ||
       !Array.isArray(classroomIds) ||
       classroomIds.length === 0
     ) {
+      console.log("No classrooms provided to getClassroomNames");
       return "No classrooms assigned";
     }
 
-    return classroomIds.join(", ");
+    console.log("Processing classroom names:", {
+      classroomIds,
+      type: typeof classroomIds[0],
+      firstItem: classroomIds[0],
+      allItems: classroomIds,
+    });
+
+    // The classroomIds array contains the actual classroom names
+    const names = classroomIds.join(", ");
+    console.log("Joined classroom names:", names);
+    return names;
   };
 
   const getTeacherNames = (teacherIds: string[] | undefined): string => {
@@ -706,6 +834,105 @@ const ExamScheduling = () => {
     }
 
     return studentIds.length;
+  };
+
+  const fetchModuleName = async (moduleId: string) => {
+    try {
+      if (!moduleId) {
+        console.log("Skipping fetch for empty module ID");
+        return "";
+      }
+      console.log(`Fetching module name for ID: ${moduleId}`);
+      const response = await fetch(
+        `http://localhost:8000/api/modules/${moduleId}/name`
+      );
+      const data = await response.json();
+      console.log(`Module name response for ID ${moduleId}:`, data);
+
+      if (data.status === "success" && data.data) {
+        console.log(
+          `Setting module name for ID ${moduleId}:`,
+          data.data.module_name
+        );
+        setModuleNames((prev) => {
+          const newNames = {
+            ...prev,
+            [moduleId]: data.data.module_name,
+          };
+          console.log("Updated module names:", newNames);
+          return newNames;
+        });
+        return data.data.module_name;
+      }
+      console.log(`No module name found for ID ${moduleId}`);
+      return moduleId;
+    } catch (error) {
+      console.error(`Error fetching module name for ID ${moduleId}:`, error);
+      return moduleId;
+    }
+  };
+
+  // Update the useEffect to fetch module names when exams are loaded
+  useEffect(() => {
+    const fetchModuleNames = async () => {
+      if (exams.length > 0) {
+        // Log the complete exam structure
+        console.log(
+          "Complete exam structure:",
+          exams.map((exam) => ({
+            id: exam.id,
+            fullExam: exam,
+            data: exam.data,
+            module: exam.module, // Check if module is at root level
+            allKeys: Object.keys(exam), // Log all available keys
+          }))
+        );
+
+        // Try different possible locations for module ID
+        const moduleIds = exams
+          .map((exam) => {
+            // Log all possible module ID locations
+            console.log(`Exam ${exam.id} possible module locations:`, {
+              rootModule: exam.module,
+              dataModule: exam.data?.module,
+              allKeys: Object.keys(exam),
+            });
+
+            // Try different possible locations for module ID
+            return exam.module || exam.data?.module;
+          })
+          .filter(Boolean);
+
+        console.log("Extracted module IDs:", moduleIds);
+
+        const uniqueModuleIds = [...new Set(moduleIds)];
+        console.log("Unique module IDs to fetch:", uniqueModuleIds);
+
+        if (uniqueModuleIds.length === 0) {
+          console.log("No valid module IDs found in exams");
+          return;
+        }
+
+        await Promise.all(
+          uniqueModuleIds.map((id) => id && fetchModuleName(id))
+        );
+      }
+    };
+
+    fetchModuleNames();
+  }, [exams]);
+
+  // Update the display of module names in the card
+  const getModuleDisplayName = (moduleId: string) => {
+    if (!moduleId) {
+      console.log("Empty module ID provided to getModuleDisplayName");
+      return "Unknown Module";
+    }
+    console.log(`Getting display name for module ID: ${moduleId}`);
+    console.log("Current module names:", moduleNames);
+    const displayName = moduleNames[moduleId] || moduleId;
+    console.log(`Display name will be: ${displayName}`);
+    return displayName;
   };
 
   return (
@@ -774,95 +1001,102 @@ const ExamScheduling = () => {
               ) : (
                 <>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {exams.map((exam) => (
-                      <Card key={exam.id}>
-                        <CardHeader>
-                          <div className="flex justify-between">
-                            <div>
-                              <CardTitle>Exam de {exam.module}</CardTitle>
-                              <CardDescription>
-                                {exam.courseCode}
-                              </CardDescription>
+                    {exams.map((exam) => {
+                      // Log exam data before rendering
+                      const moduleId = exam.module || exam.data?.module;
+                      const examDate = exam.date || exam.data?.date_examen;
+                      console.log("Exam data for rendering:", {
+                        examId: exam.id,
+                        moduleId: moduleId,
+                        date: examDate,
+                        classrooms: exam.classrooms,
+                        fullExam: exam,
+                        allKeys: Object.keys(exam),
+                      });
+
+                      return (
+                        <Card key={exam.id}>
+                          <CardHeader>
+                            <div className="flex justify-between">
+                              <div>
+                                <CardTitle>
+                                  Exam de {getModuleDisplayName(moduleId || "")}
+                                </CardTitle>
+                                <CardDescription>{moduleId}</CardDescription>
+                              </div>
+                              <Badge>{formatDate(examDate)}</Badge>
                             </div>
-                            <Badge>
-                              {exam.date
-                                ? format(
-                                    new Date(exam.date.split("T")[0]),
-                                    "MMM d, yyyy"
-                                  )
-                                : "Invalid Date"}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm font-medium flex items-center gap-1">
-                                <CalendarIcon className="h-4 w-4" />
-                                Time & Duration
-                              </p>
-                              <p className="text-sm">
-                                {formatTime(exam.startTime)} -{" "}
-                                {formatTime(exam.endTime)}
-                              </p>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm font-medium flex items-center gap-1">
+                                  <CalendarIcon className="h-4 w-4" />
+                                  Time & Duration
+                                </p>
+                                <p className="text-sm">
+                                  {formatTime(exam.startTime)} -{" "}
+                                  {formatTime(exam.endTime)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium flex items-center gap-1">
+                                  <Building className="h-4 w-4" />
+                                  Classrooms
+                                </p>
+                                <p className="text-sm">
+                                  {getClassroomNames(exam.classrooms)}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium flex items-center gap-1">
-                                <Building className="h-4 w-4" />
-                                Classrooms
-                              </p>
-                              <p className="text-sm">
-                                {getClassroomNames(exam.data?.locaux)}
-                              </p>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <p className="text-sm font-medium flex items-center gap-1">
+                                  <Users className="h-4 w-4" />
+                                  Supervisors
+                                </p>
+                                <p className="text-sm">
+                                  {getTeacherNames(exam.supervisors)}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium flex items-center gap-1">
+                                  <Users className="h-4 w-4" />
+                                  Students
+                                </p>
+                                <p className="text-sm">
+                                  {getStudentCount(exam.students)} students
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm font-medium flex items-center gap-1">
-                                <Users className="h-4 w-4" />
-                                Supervisors
-                              </p>
-                              <p className="text-sm">
-                                {getTeacherNames(exam.supervisors)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium flex items-center gap-1">
-                                <Users className="h-4 w-4" />
-                                Students
-                              </p>
-                              <p className="text-sm">
-                                {getStudentCount(exam.students)} students
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                        <CardFooter className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditExam(exam)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => handleDeleteClick(exam)}
-                          >
-                            Delete
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleShowDetails(exam)}
-                          >
-                            <Info className="h-4 w-4 mr-2" />
-                            Detail
-                          </Button>
-                        </CardFooter>
-                      </Card>
-                    ))}
+                          </CardContent>
+                          <CardFooter className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditExam(exam)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteClick(exam)}
+                            >
+                              Delete
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleShowDetails(exam)}
+                            >
+                              <Info className="h-4 w-4 mr-2" />
+                              Detail
+                            </Button>
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
                   </div>
 
                   {exams.length === 0 && !loading && (
@@ -951,7 +1185,7 @@ const ExamScheduling = () => {
                     </h3>
                     <div className="space-y-1">
                       <p className="font-medium text-gray-800">
-                        {getClassroomNames(selectedExam.data?.locaux)}
+                        {getClassroomNames(selectedExam.classrooms)}
                       </p>
                     </div>
                   </div>
