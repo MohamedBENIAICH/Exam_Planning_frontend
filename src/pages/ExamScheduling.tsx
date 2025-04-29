@@ -43,6 +43,7 @@ import {
   mockStudents,
 } from "@/lib/mockData";
 import { Exam } from "@/types";
+import { fr } from "@/translations/fr";
 
 type Assignment = {
   classroom_id: number;
@@ -87,6 +88,8 @@ const ExamScheduling = () => {
   const [classroomNames, setClassroomNames] = useState<Record<string, string>>(
     {}
   );
+  const [formationName, setFormationName] = useState<string>("");
+  const [filiereName, setFiliereName] = useState<string>("");
 
   interface ApiExam {
     id: number;
@@ -270,10 +273,30 @@ const ExamScheduling = () => {
     }
   };
 
+  const fetchFormationAndFiliereNames = async (
+    formationId: string,
+    filiereId: string
+  ) => {
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/formations/${formationId}/filieres/${filiereId}`
+      );
+      const data = await response.json();
+
+      if (data.status === "success") {
+        setFormationName(data.data.formation.formation_intitule);
+        setFiliereName(data.data.filiere.filiere_intitule);
+      }
+    } catch (error) {
+      console.error("Error fetching formation and filière names:", error);
+    }
+  };
+
   const handleShowDetails = (exam: Exam) => {
     setSelectedExam(exam);
     fetchStudentsForExam(exam.id);
     fetchAssignmentsForExam(exam.id);
+    fetchFormationAndFiliereNames(exam.formation || exam.cycle, exam.filiere);
   };
 
   const getStudentNames = (studentIds: string[]) => {
@@ -736,17 +759,18 @@ const ExamScheduling = () => {
         console.log("Skipping fetch for empty classroom ID");
         return "";
       }
-      console.log(`Fetching classroom name for ID: ${classroomId}`);
+      console.log(`Fetching classroom info for name: ${classroomId}`);
+
       const response = await fetch(
-        `http://localhost:8000/api/classrooms/${classroomId}`
+        `http://localhost:8000/api/classrooms/name/${classroomId}`
       );
       const data = await response.json();
-      console.log(`Classroom name response for ID ${classroomId}:`, data);
+      console.log(`Classroom response for name ${classroomId}:`, data);
 
       if (data.status === "success" && data.data) {
         console.log(
-          `Setting classroom name for ID ${classroomId}:`,
-          data.data.nom_du_local
+          `Setting classroom info for name ${classroomId}:`,
+          data.data
         );
         setClassroomNames((prev) => {
           const newNames = {
@@ -758,11 +782,12 @@ const ExamScheduling = () => {
         });
         return data.data.nom_du_local;
       }
-      console.log(`No classroom name found for ID ${classroomId}`);
+
+      console.log(`No classroom found for name ${classroomId}`);
       return classroomId;
     } catch (error) {
       console.error(
-        `Error fetching classroom name for ID ${classroomId}:`,
+        `Error fetching classroom info for name ${classroomId}:`,
         error
       );
       return classroomId;
@@ -814,8 +839,8 @@ const ExamScheduling = () => {
       allItems: classroomIds,
     });
 
-    // The classroomIds array contains the actual classroom names
-    const names = classroomIds.join(", ");
+    // Get the names from our state
+    const names = classroomIds.map((id) => classroomNames[id] || id).join(", ");
     console.log("Joined classroom names:", names);
     return names;
   };
@@ -940,8 +965,8 @@ const ExamScheduling = () => {
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header
-          title="Exam Scheduling"
-          subtitle="Schedule and manage exams"
+          title="Planification des examens"
+          subtitle="Planifier et gérer les examens"
           actions={
             <Dialog
               open={isDialogOpen}
@@ -953,13 +978,15 @@ const ExamScheduling = () => {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  Schedule Exam
+                  Planifier un examen
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
-                    {editingExam ? "Edit Exam" : "Schedule New Exam"}
+                    {editingExam
+                      ? "Modifier l'examen"
+                      : "Planifier un nouvel examen"}
                   </DialogTitle>
                 </DialogHeader>
                 <ExamForm
@@ -1053,7 +1080,7 @@ const ExamScheduling = () => {
                               <div>
                                 <p className="text-sm font-medium flex items-center gap-1">
                                   <Users className="h-4 w-4" />
-                                  Supervisors
+                                  {fr.examScheduling.supervisors}
                                 </p>
                                 <p className="text-sm">
                                   {getTeacherNames(exam.supervisors)}
@@ -1062,10 +1089,11 @@ const ExamScheduling = () => {
                               <div>
                                 <p className="text-sm font-medium flex items-center gap-1">
                                   <Users className="h-4 w-4" />
-                                  Students
+                                  {fr.examScheduling.students}
                                 </p>
                                 <p className="text-sm">
-                                  {getStudentCount(exam.students)} students
+                                  {getStudentCount(exam.students)}{" "}
+                                  {fr.examScheduling.studentCount}
                                 </p>
                               </div>
                             </div>
@@ -1119,15 +1147,15 @@ const ExamScheduling = () => {
             <TabsContent value="calendar">
               <Card>
                 <CardHeader>
-                  <CardTitle>Calendar View</CardTitle>
+                  <CardTitle>{fr.examScheduling.calendarView}</CardTitle>
                   <CardDescription>
-                    This view will show a calendar with all scheduled exams
+                    {fr.examScheduling.calendarDescription}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="h-96 flex items-center justify-center border rounded-md">
                     <p className="text-muted-foreground">
-                      Calendar view will be implemented in a future update
+                      {fr.examScheduling.calendarComingSoon}
                     </p>
                   </div>
                 </CardContent>
@@ -1144,13 +1172,15 @@ const ExamScheduling = () => {
           if (!open) {
             setSelectedExam(null);
             setShowStudents(false);
+            setFormationName("");
+            setFiliereName("");
           }
         }}
       >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-lg">
           <DialogHeader className="border-b pb-4">
             <DialogTitle className="text-xl font-semibold text-gray-800">
-              Exam Details
+              Détails de l'Examen
             </DialogTitle>
             {selectedExam && (
               <p className="text-gray-500 font-medium">{selectedExam.module}</p>
@@ -1162,26 +1192,26 @@ const ExamScheduling = () => {
                 <div className="space-y-4">
                   <div className="bg-gray-50 p-4 rounded-md">
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
-                      Program Information
+                      Informations du Programme
                     </h3>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Cycle:</span>
+                        <span className="text-gray-600">Formation:</span>
                         <span className="font-medium">
-                          {selectedExam.cycle}
+                          {formationName || "Chargement..."}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Filière:</span>
                         <span className="font-medium">
-                          {selectedExam.filiere}
+                          {filiereName || "Chargement..."}
                         </span>
                       </div>
                     </div>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-md">
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
-                      Location
+                      Localisation
                     </h3>
                     <div className="space-y-1">
                       <p className="font-medium text-gray-800">
@@ -1194,7 +1224,7 @@ const ExamScheduling = () => {
                 <div className="space-y-4">
                   <div className="bg-gray-50 p-4 rounded-md">
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
-                      Schedule
+                      Horaire
                     </h3>
                     <div className="space-y-2">
                       <div className="flex items-center">
@@ -1211,8 +1241,7 @@ const ExamScheduling = () => {
                           <ClockIcon className="h-4 w-4" />
                         </div>
                         <span className="text-gray-800">
-                          {selectedExam.startTime} ({selectedExam.duration}{" "}
-                          minutes)
+                          {selectedExam.startTime} - {selectedExam.endTime}
                         </span>
                       </div>
                     </div>
@@ -1302,10 +1331,10 @@ const ExamScheduling = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogTitle>Confirmer la suppression</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the exam for{" "}
-              {examToDelete?.module}? This action cannot be undone.
+              Êtes-vous sûr de vouloir supprimer l'examen pour{" "}
+              {examToDelete?.module} ? Cette action ne peut pas être annulée.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1314,14 +1343,14 @@ const ExamScheduling = () => {
               onClick={() => setIsDeleteDialogOpen(false)}
               disabled={loading}
             >
-              Cancel
+              Annuler
             </Button>
             <Button
               variant="destructive"
               onClick={() => examToDelete && handleDeleteExam(examToDelete.id)}
               disabled={loading}
             >
-              {loading ? "Deleting..." : "Delete"}
+              {loading ? "Suppression..." : "Supprimer"}
             </Button>
           </DialogFooter>
         </DialogContent>

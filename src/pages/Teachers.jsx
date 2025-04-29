@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -22,14 +21,14 @@ const Teachers = () => {
         prevTeachers.map(t => t.id === teacher.id ? teacher : t)
       );
       toast({
-        title: "Teacher Updated",
-        description: `${teacher.firstName} ${teacher.lastName}'s information has been updated`
+        title: "Enseignant mis à jour",
+        description: `Les informations de ${teacher.firstName} ${teacher.lastName} ont été mises à jour`
       });
     } else {
       setTeachers(prevTeachers => [...prevTeachers, teacher]);
       toast({
-        title: "Teacher Added",
-        description: `${teacher.firstName} ${teacher.lastName} has been added as a supervisor`
+        title: "Enseignant ajouté",
+        description: `${teacher.firstName} ${teacher.lastName} a été ajouté comme superviseur`
       });
     }
     setIsDialogOpen(false);
@@ -39,8 +38,8 @@ const Teachers = () => {
   const handleDeleteTeacher = (id) => {
     setTeachers(prevTeachers => prevTeachers.filter(teacher => teacher.id !== id));
     toast({
-      title: "Teacher Removed",
-      description: "The teacher has been removed from the system",
+      title: "Enseignant supprimé",
+      description: "L'enseignant a été supprimé du système",
       variant: "destructive"
     });
   };

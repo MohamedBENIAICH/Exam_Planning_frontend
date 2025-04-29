@@ -3,12 +3,13 @@ import { Link, useLocation } from "react-router-dom";
 import { Calendar, Home, Users, Building, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { fr } from "@/translations/fr";
 
 const navItems = [
-  { path: "/", label: "Dashboard", icon: Home },
-  { path: "/students", label: "Students", icon: Users },
-  { path: "/classrooms", label: "Classrooms", icon: Building },
-  { path: "/exams", label: "Exam Scheduling", icon: Calendar },
+  { path: "/", label: fr.navigation.dashboard, icon: Home },
+  //{ path: "/students", label: fr.navigation.students, icon: Users },
+  { path: "/classrooms", label: fr.navigation.classrooms, icon: Building },
+  { path: "/exams", label: fr.navigation.exams, icon: Calendar },
 ];
 
 const Sidebar = () => {
@@ -25,7 +26,7 @@ const Sidebar = () => {
       <div className="p-4 flex items-center justify-between">
         {!collapsed && (
           <h1 className="text-lg font-bold exam-scheduler-logo">
-            Exam Scheduler
+            Planificateur d'examens
           </h1>
         )}
         <Button

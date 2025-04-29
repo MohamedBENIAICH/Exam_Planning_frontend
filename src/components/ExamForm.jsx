@@ -1,3 +1,5 @@
+import { scheduleExam } from "@/services/classroomService";
+
 const onFormSubmit = async (values) => {
   try {
     console.log("Form submission values:", values);
@@ -41,6 +43,11 @@ const onFormSubmit = async (values) => {
     const examDate = new Date(values.date_examen);
     const formattedDate = examDate.toISOString().split('T')[0];
 
+    // Get classroom names for the locaux field
+    const classroomNames = values.classroom_ids
+      .map(id => availableClassrooms.find(c => c.id === id)?.nom_du_local || id)
+      .join(", ");
+
     // Prepare the exam data
     const examData = {
       cycle: values.cycle,
@@ -49,7 +56,7 @@ const onFormSubmit = async (values) => {
       date_examen: formattedDate,
       heure_debut: values.heure_debut,
       heure_fin: values.heure_fin,
-      locaux: values.locaux,
+      locaux: classroomNames,
       classroom_ids: values.classroom_ids.filter(id => id && id !== 0),
       superviseurs: values.superviseurs.filter(id => id && id !== 0),
       students: selectedStudents
@@ -57,14 +64,51 @@ const onFormSubmit = async (values) => {
 
     console.log("Prepared exam data:", examData);
 
+    let createdExam;
     if (examId) {
       // Update existing exam
-      await examService.updateExam(examId, examData);
+      createdExam = await examService.updateExam(examId, examData);
       toast.success("Exam updated successfully");
     } else {
       // Create new exam
-      await examService.createExam(examData);
+      const response = await examService.createExam(examData);
+      console.log("Exam creation response:", response);
+      // Extract the exam ID from the response
+      createdExam = {
+        id: response.data.id || response.data.exam_id || response.data.examId || response.id
+      };
+      console.log("Extracted exam ID:", createdExam.id);
       toast.success("Exam created successfully");
+    }
+
+    // Schedule the exam for each selected classroom
+    if (createdExam && createdExam.id) {
+      console.log("Starting exam scheduling process for exam ID:", createdExam.id);
+      const schedulePromises = examData.classroom_ids.map(async (classroomId) => {
+        const scheduleData = {
+          classroom_id: classroomId,
+          exam_id: createdExam.id,
+          date_examen: formattedDate,
+          heure_debut: values.heure_debut,
+          heure_fin: values.heure_fin
+        };
+        
+        console.log(`Scheduling exam for classroom ${classroomId} with data:`, scheduleData);
+        try {
+          await scheduleExam(scheduleData);
+          console.log(`Successfully scheduled exam in classroom ${classroomId}`);
+          toast.success(`Successfully scheduled exam in classroom ${classroomId}`);
+        } catch (error) {
+          console.error(`Failed to schedule exam in classroom ${classroomId}:`, error);
+          toast.error(`Failed to schedule exam in classroom ${classroomId}: ${error.message}`);
+        }
+      });
+
+      await Promise.all(schedulePromises);
+      console.log("Completed scheduling process for all classrooms");
+    } else {
+      console.error("Failed to get exam ID from creation response:", createdExam);
+      toast.error("Failed to schedule exam: Could not get exam ID");
     }
 
     // Reset form and close modal

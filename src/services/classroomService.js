@@ -212,3 +212,70 @@ export const getAvailableClassrooms = async () => {
     throw error;
   }
 };
+
+/**
+ * Schedule an exam in a classroom
+ * @param {Object} scheduleData - Exam scheduling data
+ * @param {number} scheduleData.classroom_id - Classroom ID
+ * @param {number} scheduleData.exam_id - Exam ID
+ * @param {string} scheduleData.date_examen - Exam date (YYYY-MM-DD)
+ * @param {string} scheduleData.heure_debut - Start time (HH:MM)
+ * @param {string} scheduleData.heure_fin - End time (HH:MM)
+ * @returns {Promise<Object>} - Promise that resolves to the scheduling response
+ */
+export const scheduleExam = async (scheduleData) => {
+  try {
+    console.log("=== Starting Exam Scheduling Process ===");
+    console.log(
+      "Schedule data being sent:",
+      JSON.stringify(scheduleData, null, 2)
+    );
+    console.log("API URL:", `${API_URL}/classrooms/schedule-exam`);
+    console.log("Request method: POST");
+    console.log("Request headers:", {
+      "Content-Type": "application/json",
+    });
+
+    const response = await fetch(`${API_URL}/classrooms/schedule-exam`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(scheduleData),
+    });
+
+    console.log("=== API Response Details ===");
+    console.log("Response status:", response.status);
+    console.log("Response status text:", response.statusText);
+    console.log(
+      "Response headers:",
+      Object.fromEntries(response.headers.entries())
+    );
+
+    const responseData = await response.json();
+    console.log("Response data:", JSON.stringify(responseData, null, 2));
+
+    if (!response.ok) {
+      console.error("=== Schedule Exam Failed ===");
+      console.error("Status code:", response.status);
+      console.error("Error response:", responseData);
+      throw new Error(responseData.message || `Error: ${response.status}`);
+    }
+
+    console.log("=== Schedule Exam Successful ===");
+    console.log(
+      "Exam scheduled successfully for classroom:",
+      scheduleData.classroom_id
+    );
+    return responseData;
+  } catch (error) {
+    console.error("=== Schedule Exam Error ===");
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
+    console.error(
+      "Schedule data that caused the error:",
+      JSON.stringify(scheduleData, null, 2)
+    );
+    throw error;
+  }
+};

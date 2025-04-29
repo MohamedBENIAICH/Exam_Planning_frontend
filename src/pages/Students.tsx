@@ -35,8 +35,8 @@ const Students = () => {
       <Sidebar />
       <div className="flex-1 flex flex-col">
         <Header
-          title="Students"
-          subtitle="Manage student records"
+          title="Étudiants"
+          subtitle="Gérer les dossiers des étudiants"
           actions={
             <>
               <Dialog
@@ -46,27 +46,25 @@ const Students = () => {
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <Upload className="h-4 w-4 mr-2" />
-                    Import CSV
+                    Importer CSV
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-4xl">
                   <DialogHeader>
-                    <DialogTitle>Import Students</DialogTitle>
+                    <DialogTitle>Importer des étudiants</DialogTitle>
                   </DialogHeader>
-                  {/* Pass onImportComplete to ImportCSV */}
                   <ImportCSV onImportComplete={handleImportComplete} />
                 </DialogContent>
               </Dialog>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Student
+                Ajouter un étudiant
               </Button>
             </>
           }
         />
         <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-auto">
           <Card>
-            {/* Pass students to StudentList */}
             <StudentList students={students} />
           </Card>
         </div>
