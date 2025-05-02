@@ -143,24 +143,78 @@ const ExamForm = ({
     loadFormations();
   }, [toast]);
 
-  // Load available classrooms
+  // Load available classrooms based on selected date and time
   useEffect(() => {
-    const loadClassrooms = async () => {
-      try {
-        const classrooms = await getAvailableClassrooms();
-        setAvailableClassrooms(classrooms);
-      } catch (error) {
-        console.error("Error loading classrooms:", error);
-        toast({
-          title: "Erreur",
-          description: "Impossible de charger les salles disponibles",
-          variant: "destructive",
-        });
+    const loadAvailableClassrooms = async () => {
+      const selectedDate = form.getValues("date");
+      const startTime = form.getValues("startTime");
+      const endTime = form.getValues("endTime");
+
+      if (selectedDate && startTime && endTime) {
+        const formattedDate = format(selectedDate, "yyyy-MM-dd");
+
+        try {
+          // First API call to get scheduled classroom IDs
+          const response = await fetch(`http://127.0.0.1:8000/api/classrooms/search?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}`);
+          const data = await response.json();
+
+          if (data.status === "success") {
+            const scheduledClassroomIds = data.data.scheduled_classroom_ids;
+
+            // Debugging: Check the scheduled classroom IDs
+            console.log("Scheduled Classroom IDs:", scheduledClassroomIds);
+
+            // Ensure that scheduledClassroomIds is not empty before making the second API call
+            if (scheduledClassroomIds.length >= 0) {
+              // Second API call to get available classrooms
+              const availableResponse = await fetch(`http://127.0.0.1:8000/api/classrooms/not-in-list`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ classroom_ids: scheduledClassroomIds }), // Ensure this is an array
+              });
+              const availableData = await availableResponse.json();
+
+              if (availableData.status === "success") {
+                setAvailableClassrooms(availableData.data);
+              } else {
+                console.error("Error fetching available classrooms:", availableData);
+                toast({
+                  title: "Erreur",
+                  description: "Impossible de charger les salles disponibles",
+                  variant: "destructive",
+                });
+              }
+            } else {
+              console.warn("No scheduled classrooms found for the selected date and time.");
+              toast({
+                title: "Avertissement",
+                description: "Aucune salle programmée trouvée pour cette date et heure.",
+                variant: "default",
+              });
+            }
+          } else {
+            console.error("Error fetching scheduled classrooms:", data);
+            toast({
+              title: "Erreur",
+              description: "Impossible de charger les salles programmées",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          console.error("Error loading classrooms:", error);
+          toast({
+            title: "Erreur",
+            description: "Impossible de charger les salles disponibles",
+            variant: "destructive",
+          });
+        }
       }
     };
 
-    loadClassrooms();
-  }, [toast]);
+    loadAvailableClassrooms();
+  }, [form.watch("date"), form.watch("startTime"), form.watch("endTime"), toast]);
 
   // Load departments
   useEffect(() => {
@@ -992,59 +1046,51 @@ const ExamForm = ({
 
           {/* Classrooms Field */}
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-              <FormField
-                control={form.control}
-                name="classrooms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
-                      <Building className="h-5 w-5" />
-                      Les locaux
-                    </FormLabel>
-                    <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                      {availableClassrooms.map((classroom) => (
-                        <div
-                          key={classroom.id}
-                          className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
-                        >
-                          <div className="flex items-start gap-2">
-                            <Checkbox
-                              id={`classroom-${classroom.id}`}
-                              checked={field.value.includes(classroom.id)}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  field.onChange([
-                                    ...field.value,
-                                    classroom.id,
-                                  ]);
-                                } else {
-                                  field.onChange(
-                                    field.value.filter(
-                                      (id) => id !== classroom.id
-                                    )
-                                  );
-                                }
-                              }}
-                            />
-                            <label
-                              htmlFor={`classroom-${classroom.id}`}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                            >
-                              {classroom.name} ({classroom.building}) -
-                              Capacité: {classroom.capacity}
-                            </label>
-                          </div>
-                          <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                            Disponible
-                          </span>
+            <FormField
+              control={form.control}
+              name="classrooms"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
+                    <Building className="h-5 w-5" />
+                    Les locaux
+                  </FormLabel>
+                  <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                    {availableClassrooms.map((classroom) => (
+                      <div
+                        key={classroom.id}
+                        className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Checkbox
+                            id={`classroom-${classroom.id}`}
+                            checked={field.value.includes(classroom.id)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                field.onChange([...field.value, classroom.id]);
+                              } else {
+                                field.onChange(field.value.filter((id) => id !== classroom.id));
+                              }
+                            }}
+                          />
+                          <label
+                            htmlFor={`classroom-${classroom.id}`}
+                            className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {classroom.nom_du_local} ({classroom.departement}) - Capacité: {classroom.capacite}
+                          </label>
                         </div>
-                      ))}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                        <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
+                          Disponible
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           {/* Form Footer - Fixed at bottom */}
           <div className="flex justify-end gap-2 mt-4 py-4 border-t bg-white sticky bottom-0">

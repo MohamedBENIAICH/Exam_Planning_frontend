@@ -29,7 +29,7 @@ const formSchema = z.object({
   building: z.string().min(1, "Le nom du bâtiment est requis"),
   capacity: z.coerce.number().min(1, "La capacité doit être au moins de 1"),
   equipment: z.array(z.string()),
-  isAvailable: z.boolean().default(true),
+  // isAvailable: z.boolean().default(true),
 });
 
 const equipmentOptions = [
@@ -75,14 +75,14 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
           building: classroom.building,
           capacity: classroom.capacity,
           equipment: classroom.equipment,
-          isAvailable: classroom.isAvailable,
+          // isAvailable: classroom.isAvailable,
         }
       : {
           name: "",
           building: "",
           capacity: 30,
           equipment: [],
-          isAvailable: true,
+          // isAvailable: true,
         },
   });
 
@@ -108,7 +108,7 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
             building: values.building,
             capacity: values.capacity,
             equipment: values.equipment,
-            isAvailable: values.isAvailable,
+            // isAvailable: values.isAvailable,
           });
         } else {
           // Handle validation errors from the backend
@@ -276,7 +276,7 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
           )}
         />
 
-        <FormField
+        {/* <FormField
           control={form.control}
           name="isAvailable"
           render={({ field }) => (
@@ -292,7 +292,7 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
               </div>
             </FormItem>
           )}
-        />
+        /> */}
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" type="button" onClick={onCancel}>
