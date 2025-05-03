@@ -41,8 +41,15 @@ import { useToast } from "@/components/ui/use-toast";
 import { createExam, updateExam } from "../../services/examService";
 import ImportCSV from "../Students/ImportCSV";
 import { getAvailableClassrooms } from "@/services/classroomService";
-import { getSupervisorsByDepartment, getDepartments } from "@/services/supervisorService";
-import { getFormations, getFilieresByFormation, getModulesByFormationAndFiliere } from "@/services/formationService";
+import {
+  getSupervisorsByDepartment,
+  getDepartments,
+} from "@/services/supervisorService";
+import {
+  getFormations,
+  getFilieresByFormation,
+  getModulesByFormationAndFiliere,
+} from "@/services/formationService";
 // import { Spinner } from "@/components/ui/spinner"; // Uncomment if you have a Spinner component
 
 const formSchema = z.object({
@@ -55,7 +62,9 @@ const formSchema = z.object({
   }),
   startTime: z.string().min(1, "L'heure de début est requise"),
   endTime: z.string().min(1, "L'heure de fin est requise"),
-  classrooms: z.array(z.string()).min(1, "Au moins une salle est requise"),
+  classrooms: z
+    .array(z.union([z.string(), z.number()]))
+    .min(1, "Au moins une salle est requise"),
   supervisors: z.array(z.number()).min(1, "Au moins un superviseur est requis"),
   students: z.array(z.string()),
 });
@@ -74,6 +83,9 @@ const ExamForm = ({
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [showImportCSV, setShowImportCSV] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sendingInvitations, setSendingInvitations] = useState(false);
+  const [examCreated, setExamCreated] = useState(false);
+  const [examId, setExamId] = useState(null);
   const [availableClassrooms, setAvailableClassrooms] = useState([]);
   const [supervisorsByDepartment, setSupervisorsByDepartment] = useState([]);
   const [loadingSupervisors, setLoadingSupervisors] = useState(false);
@@ -100,11 +112,13 @@ const ExamForm = ({
           startTime: exam.startTime,
           endTime: exam.endTime,
           classrooms: exam.classrooms,
-          supervisors: exam.supervisors ? exam.supervisors.map(id => {
-            // Handle both string and number IDs
-            const numId = typeof id === 'string' ? parseInt(id, 10) : id;
-            return isNaN(numId) ? 0 : numId;
-          }) : [],
+          supervisors: exam.supervisors
+            ? exam.supervisors.map((id) => {
+                // Handle both string and number IDs
+                const numId = typeof id === "string" ? parseInt(id, 10) : id;
+                return isNaN(numId) ? 0 : numId;
+              })
+            : [],
           students: exam.students,
         }
       : {
@@ -155,7 +169,9 @@ const ExamForm = ({
 
         try {
           // First API call to get scheduled classroom IDs
-          const response = await fetch(`http://127.0.0.1:8000/api/classrooms/search?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}`);
+          const response = await fetch(
+            `http://127.0.0.1:8000/api/classrooms/search?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}`
+          );
           const data = await response.json();
 
           if (data.status === "success") {
@@ -167,19 +183,27 @@ const ExamForm = ({
             // Ensure that scheduledClassroomIds is not empty before making the second API call
             if (scheduledClassroomIds.length >= 0) {
               // Second API call to get available classrooms
-              const availableResponse = await fetch(`http://127.0.0.1:8000/api/classrooms/not-in-list`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ classroom_ids: scheduledClassroomIds }), // Ensure this is an array
-              });
+              const availableResponse = await fetch(
+                `http://127.0.0.1:8000/api/classrooms/not-in-list`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    classroom_ids: scheduledClassroomIds,
+                  }), // Ensure this is an array
+                }
+              );
               const availableData = await availableResponse.json();
 
               if (availableData.status === "success") {
                 setAvailableClassrooms(availableData.data);
               } else {
-                console.error("Error fetching available classrooms:", availableData);
+                console.error(
+                  "Error fetching available classrooms:",
+                  availableData
+                );
                 toast({
                   title: "Erreur",
                   description: "Impossible de charger les salles disponibles",
@@ -187,10 +211,13 @@ const ExamForm = ({
                 });
               }
             } else {
-              console.warn("No scheduled classrooms found for the selected date and time.");
+              console.warn(
+                "No scheduled classrooms found for the selected date and time."
+              );
               toast({
                 title: "Avertissement",
-                description: "Aucune salle programmée trouvée pour cette date et heure.",
+                description:
+                  "Aucune salle programmée trouvée pour cette date et heure.",
                 variant: "default",
               });
             }
@@ -214,7 +241,12 @@ const ExamForm = ({
     };
 
     loadAvailableClassrooms();
-  }, [form.watch("date"), form.watch("startTime"), form.watch("endTime"), toast]);
+  }, [
+    form.watch("date"),
+    form.watch("startTime"),
+    form.watch("endTime"),
+    toast,
+  ]);
 
   // Load departments
   useEffect(() => {
@@ -222,7 +254,7 @@ const ExamForm = ({
       try {
         setLoadingDepartments(true);
         const response = await getDepartments();
-        if (response.status === 'success') {
+        if (response.status === "success") {
           setDepartments(response.data);
         } else {
           toast({
@@ -257,7 +289,7 @@ const ExamForm = ({
       try {
         setLoadingSupervisors(true);
         const response = await getSupervisorsByDepartment(selectedDepartment);
-        if (response.status === 'success') {
+        if (response.status === "success") {
           setSupervisorsByDepartment(response.data);
         } else {
           toast({
@@ -342,7 +374,12 @@ const ExamForm = ({
     };
 
     loadModules();
-  }, [form.watch("formation"), form.watch("filiere"), form.watch("semester"), toast]);
+  }, [
+    form.watch("formation"),
+    form.watch("filiere"),
+    form.watch("semester"),
+    toast,
+  ]);
 
   // Debug: Log form state changes
   useEffect(() => {
@@ -428,7 +465,7 @@ const ExamForm = ({
 
       // Get classroom names for the locaux field
       const classroomNames = values.classrooms
-        .map(id => availableClassrooms.find(c => c.id === id)?.name || id)
+        .map((id) => availableClassrooms.find((c) => c.id === id)?.name || id)
         .join(", ");
 
       // Format the data according to the backend's expected format
@@ -441,15 +478,18 @@ const ExamForm = ({
         heure_debut: values.startTime,
         heure_fin: values.endTime,
         locaux: classroomNames,
-        superviseurs: supervisorsToSubmit.map(s => `${s.prenom} ${s.nom}`).join(", "),
-        classroom_ids: values.classrooms.map(id => parseInt(id, 10)),
-        students: studentsToSubmit.map(student => ({
+        superviseurs: supervisorsToSubmit
+          .map((s) => `${s.prenom} ${s.nom}`)
+          .join(", "),
+        classroom_ids: values.classrooms.map((id) => parseInt(id, 10)),
+        students: studentsToSubmit.map((student) => ({
           studentId: student.studentId || student.id,
           firstName: student.firstName || student.prenom,
           lastName: student.lastName || student.nom,
-          email: student.email || `${student.studentId || student.id}@example.com`,
-          program: student.program || values.filiere
-        }))
+          email:
+            student.email || `${student.studentId || student.id}@example.com`,
+          program: student.program || values.filiere,
+        })),
       };
 
       console.log("Submitting exam data:", examData);
@@ -467,6 +507,8 @@ const ExamForm = ({
           title: "Examen créé",
           description: `L'examen de ${values.module} a été créé avec succès`,
         });
+        setExamCreated(true);
+        setExamId(result?.id || result?.data?.id);
       }
 
       console.log("API response:", result);
@@ -482,7 +524,9 @@ const ExamForm = ({
         if (examId) {
           console.log("Assigning students to classrooms:", {
             classroom_ids: values.classrooms.map(Number),
-            student_numeros: studentsToSubmit.map(s => String(s.studentId || s.numero_etudiant || s.id)),
+            student_numeros: studentsToSubmit.map((s) =>
+              String(s.studentId || s.numero_etudiant || s.id)
+            ),
           });
           const assignmentResponse = await fetch(
             `http://localhost:8000/api/exams/${examId}/assignments`,
@@ -493,7 +537,9 @@ const ExamForm = ({
               },
               body: JSON.stringify({
                 classroom_ids: values.classrooms.map(Number), // keep as numbers
-                student_numeros: studentsToSubmit.map(s => String(s.studentId || s.numero_etudiant || s.id)),
+                student_numeros: studentsToSubmit.map((s) =>
+                  String(s.studentId || s.numero_etudiant || s.id)
+                ),
               }),
             }
           );
@@ -502,10 +548,14 @@ const ExamForm = ({
           if (assignmentResponse.ok) {
             toast({
               title: "Affectation réussie",
-              description: "Les étudiants ont été assignés à leurs salles et places.",
+              description:
+                "Les étudiants ont été assignés à leurs salles et places.",
             });
           } else {
-            throw new Error(assignmentData.message || "Erreur lors de l'affectation des étudiants.");
+            throw new Error(
+              assignmentData.message ||
+                "Erreur lors de l'affectation des étudiants."
+            );
           }
         }
       } catch (err) {
@@ -524,6 +574,82 @@ const ExamForm = ({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendInvitations = async () => {
+    if (!examId || !importedStudentsLocal.length) {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'envoyer les convocations",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSendingInvitations(true);
+
+      // Récupérer les informations de l'examen
+      const examValues = form.getValues();
+      const formattedDate = format(examValues.date, "yyyy-MM-dd");
+
+      // Préparer les données pour l'envoi
+      const requestData = {
+        exam: {
+          id: examId,
+          module: examValues.module,
+          date: formattedDate,
+          startTime: examValues.startTime,
+          endTime: examValues.endTime,
+          classrooms: examValues.classrooms,
+        },
+        students: importedStudentsLocal.map((student) => ({
+          studentId: student.studentId,
+          firstName: student.firstName,
+          lastName: student.lastName,
+          email: student.email,
+          program: student.program,
+          cin: student.cin,
+        })),
+      };
+
+      console.log("Sending invitations with data:", requestData);
+
+      const response = await fetch(
+        `http://localhost:8000/api/exams/${examId}/send-invitations`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(requestData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server response:", errorText);
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+
+      toast({
+        title: "Convocations envoyées",
+        description:
+          "Les convocations ont été envoyées avec succès aux étudiants",
+      });
+    } catch (error) {
+      console.error("Error sending invitations:", error);
+      toast({
+        title: "Erreur",
+        description: `Impossible d'envoyer les convocations: ${error.message}`,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingInvitations(false);
     }
   };
 
@@ -559,7 +685,9 @@ const ExamForm = ({
     setImportedStudentsLocal(importedStudents);
 
     // Store just the IDs for selection tracking
-    const importedStudentIds = importedStudents.map((student) => student.id);
+    const importedStudentIds = importedStudents.map((student) =>
+      student.studentId.toString()
+    );
     setSelectedStudentsLocal(importedStudentIds);
 
     // Update the form values with the student IDs
@@ -588,18 +716,20 @@ const ExamForm = ({
 
   const showExamDetail = async (examId) => {
     // ...open your detail dialog/drawer here...
-    const res = await fetch(`http://localhost:8000/api/exams/${examId}/assignments`);
+    const res = await fetch(
+      `http://localhost:8000/api/exams/${examId}/assignments`
+    );
     const data = await res.json();
     setAssignments(data.data.assignments); // or adjust as needed
   };
 
   return (
     <Form {...form}>
-      <form 
+      <form
         onSubmit={(e) => {
           console.log("🔵 Form submit event triggered");
           form.handleSubmit(onFormSubmit, handleFormError)(e);
-        }} 
+        }}
         className="space-y-6"
       >
         <div className="flex flex-col h-full max-h-[85vh]">
@@ -636,7 +766,10 @@ const ExamForm = ({
                             </div>
                           ) : formations.length > 0 ? (
                             formations.map((formation) => (
-                              <SelectItem key={formation.id} value={formation.id.toString()}>
+                              <SelectItem
+                                key={formation.id}
+                                value={formation.id.toString()}
+                              >
                                 {formation.name}
                               </SelectItem>
                             ))
@@ -680,13 +813,16 @@ const ExamForm = ({
                             </div>
                           ) : filieres.length > 0 ? (
                             filieres.map((filiere) => (
-                              <SelectItem key={filiere.id} value={filiere.id.toString()}>
+                              <SelectItem
+                                key={filiere.id}
+                                value={filiere.id.toString()}
+                              >
                                 {filiere.name}
                               </SelectItem>
                             ))
                           ) : (
                             <div className="p-2 text-center text-slate-500">
-                              {form.getValues("formation") 
+                              {form.getValues("formation")
                                 ? "Aucune filière disponible pour cette formation"
                                 : "Veuillez d'abord sélectionner une formation"}
                             </div>
@@ -720,7 +856,10 @@ const ExamForm = ({
                         </FormControl>
                         <SelectContent>
                           {[1, 2, 3, 4, 5, 6].map((semester) => (
-                            <SelectItem key={semester} value={semester.toString()}>
+                            <SelectItem
+                              key={semester}
+                              value={semester.toString()}
+                            >
                               Semestre {semester}
                             </SelectItem>
                           ))}
@@ -741,7 +880,11 @@ const ExamForm = ({
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
-                        disabled={!form.getValues("formation") || !form.getValues("filiere") || !form.getValues("semester")}
+                        disabled={
+                          !form.getValues("formation") ||
+                          !form.getValues("filiere") ||
+                          !form.getValues("semester")
+                        }
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
@@ -755,13 +898,16 @@ const ExamForm = ({
                             </div>
                           ) : modules.length > 0 ? (
                             modules.map((module) => (
-                              <SelectItem key={module.id} value={module.id.toString()}>
+                              <SelectItem
+                                key={module.id}
+                                value={module.id.toString()}
+                              >
                                 {module.name}
                               </SelectItem>
                             ))
                           ) : (
                             <div className="p-2 text-center text-slate-500">
-                              {!form.getValues("formation") 
+                              {!form.getValues("formation")
                                 ? "Veuillez d'abord sélectionner une formation"
                                 : !form.getValues("filiere")
                                 ? "Veuillez d'abord sélectionner une filière"
@@ -921,10 +1067,15 @@ const ExamForm = ({
                               >
                                 <FormControl>
                                   <Checkbox
-                                    checked={field.value.includes(supervisor.id)}
+                                    checked={field.value.includes(
+                                      supervisor.id
+                                    )}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
-                                        field.onChange([...field.value, supervisor.id]);
+                                        field.onChange([
+                                          ...field.value,
+                                          supervisor.id,
+                                        ]);
                                       } else {
                                         field.onChange(
                                           field.value.filter(
@@ -935,10 +1086,9 @@ const ExamForm = ({
                                     }}
                                   />
                                 </FormControl>
-                                <label
-                                  className="text-sm leading-none cursor-pointer flex-1"
-                                >
-                                  {supervisor.prenom} {supervisor.nom} ({supervisor.type || "Non spécifié"})
+                                <label className="text-sm leading-none cursor-pointer flex-1">
+                                  {supervisor.prenom} {supervisor.nom} (
+                                  {supervisor.type || "Non spécifié"})
                                 </label>
                               </div>
                             ))}
@@ -958,7 +1108,9 @@ const ExamForm = ({
                         </h4>
                         <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
                           {supervisorsByDepartment
-                            .filter((supervisor) => field.value.includes(supervisor.id))
+                            .filter((supervisor) =>
+                              field.value.includes(supervisor.id)
+                            )
                             .map((supervisor) => (
                               <div
                                 key={supervisor.id}
@@ -976,10 +1128,9 @@ const ExamForm = ({
                                     }}
                                   />
                                 </FormControl>
-                                <label
-                                  className="text-sm leading-none cursor-pointer flex-1"
-                                >
-                                  {supervisor.prenom} {supervisor.nom} ({supervisor.type || "Non spécifié"})
+                                <label className="text-sm leading-none cursor-pointer flex-1">
+                                  {supervisor.prenom} {supervisor.nom} (
+                                  {supervisor.type || "Non spécifié"})
                                 </label>
                               </div>
                             ))}
@@ -1069,7 +1220,11 @@ const ExamForm = ({
                               if (checked) {
                                 field.onChange([...field.value, classroom.id]);
                               } else {
-                                field.onChange(field.value.filter((id) => id !== classroom.id));
+                                field.onChange(
+                                  field.value.filter(
+                                    (id) => id !== classroom.id
+                                  )
+                                );
                               }
                             }}
                           />
@@ -1077,7 +1232,8 @@ const ExamForm = ({
                             htmlFor={`classroom-${classroom.id}`}
                             className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                           >
-                            {classroom.nom_du_local} ({classroom.departement}) - Capacité: {classroom.capacite}
+                            {classroom.nom_du_local} ({classroom.departement}) -
+                            Capacité: {classroom.capacite}
                           </label>
                         </div>
                         <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
@@ -1101,13 +1257,30 @@ const ExamForm = ({
                 console.log("Cancel button clicked");
                 onCancel?.(e);
               }}
-              disabled={loading}
+              disabled={loading || sendingInvitations}
             >
               Annuler
             </Button>
+            {examCreated && (
+              <Button
+                type="button"
+                onClick={handleSendInvitations}
+                disabled={sendingInvitations}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {sendingInvitations ? (
+                  <div className="flex items-center gap-2">
+                    <Spinner />
+                    Envoi en cours...
+                  </div>
+                ) : (
+                  "Envoyer les convocations"
+                )}
+              </Button>
+            )}
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || sendingInvitations}
               onClick={() => console.log("🔴 Submit button clicked")}
               className="bg-blue-600 hover:bg-blue-700"
             >
