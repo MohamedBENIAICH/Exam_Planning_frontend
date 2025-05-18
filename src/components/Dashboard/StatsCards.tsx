@@ -19,7 +19,7 @@ const StatsCards = () => {
         const endpoints = [
           "http://127.0.0.1:8000/api/exams/count",
           "http://127.0.0.1:8000/api/students/count",
-          "http://127.0.0.1:8000/api/classrooms/available-count",
+          "http://127.0.0.1:8000/api/classrooms/count",
         ];
 
         const responses = await Promise.all(
