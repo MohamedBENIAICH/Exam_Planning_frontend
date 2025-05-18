@@ -88,7 +88,9 @@ const ExamForm = ({
   const [examId, setExamId] = useState(null);
   const [availableClassrooms, setAvailableClassrooms] = useState([]);
   const [supervisorsByDepartment, setSupervisorsByDepartment] = useState([]);
+  const [professorsByDepartment, setProfessorsByDepartment] = useState([]);
   const [loadingSupervisors, setLoadingSupervisors] = useState(false);
+  const [loadingProfessors, setLoadingProfessors] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [loadingDepartments, setLoadingDepartments] = useState(false);
   const [formations, setFormations] = useState([]);
@@ -99,6 +101,12 @@ const ExamForm = ({
   const [loadingModules, setLoadingModules] = useState(false);
   const { toast } = useToast();
   const [assignments, setAssignments] = useState(null);
+  const [selectedClassroomType, setSelectedClassroomType] = useState(null); // 'amphi' or 'classroom'
+  const [selectedClassroomDepartment, setSelectedClassroomDepartment] = useState("");
+  const [amphitheaters, setAmphitheaters] = useState([]);
+  const [loadingAmphitheaters, setLoadingAmphitheaters] = useState(false);
+  const [loadingClassrooms, setLoadingClassrooms] = useState(false);
+  const [showSuperviseursList, setShowSuperviseursList] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -253,9 +261,13 @@ const ExamForm = ({
     const loadDepartments = async () => {
       try {
         setLoadingDepartments(true);
-        const response = await getDepartments();
-        if (response.status === "success") {
-          setDepartments(response.data);
+        const response = await fetch('http://localhost:8000/api/departements');
+        const data = await response.json();
+        
+        if (data.status === "success") {
+          // Extract unique department names
+          const uniqueDepartments = [...new Set(data.data.map(dept => dept.nom_departement))];
+          setDepartments(uniqueDepartments);
         } else {
           toast({
             title: "Erreur",
@@ -281,32 +293,32 @@ const ExamForm = ({
   // Fetch supervisors when department changes
   useEffect(() => {
     const fetchSupervisors = async () => {
-      if (!selectedDepartment) {
-        setSupervisorsByDepartment([]);
-        return;
-      }
-
       try {
+        // Fetch superviseurs (no department dependency)
         setLoadingSupervisors(true);
-        const response = await getSupervisorsByDepartment(selectedDepartment);
-        if (response.status === "success") {
-          setSupervisorsByDepartment(response.data);
+        const superviseursResponse = await fetch(`http://localhost:8000/api/superviseurs`);
+        const superviseursData = await superviseursResponse.json();
+        setSupervisorsByDepartment(Array.isArray(superviseursData) ? superviseursData : []);
+
+        // Only fetch professeurs if department is selected
+        if (selectedDepartment) {
+          setLoadingProfessors(true);
+          const professeursResponse = await fetch(`http://localhost:8000/api/professeurs/by-departement?departement=${selectedDepartment}`);
+          const professeursData = await professeursResponse.json();
+          setProfessorsByDepartment(Array.isArray(professeursData) ? professeursData : []);
         } else {
-          toast({
-            title: "Erreur",
-            description: "Impossible de charger les superviseurs",
-            variant: "destructive",
-          });
+          setProfessorsByDepartment([]);
         }
       } catch (error) {
         console.error("Error loading supervisors:", error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les superviseurs",
+          description: "Impossible de charger les superviseurs et professeurs",
           variant: "destructive",
         });
       } finally {
         setLoadingSupervisors(false);
+        setLoadingProfessors(false);
       }
     };
 
@@ -397,6 +409,101 @@ const ExamForm = ({
       setSelectedStudents(selectedStudentsLocal);
     }
   }, [selectedStudentsLocal, setSelectedStudents]);
+
+  // Add useEffect for fetching amphitheaters
+  useEffect(() => {
+    const fetchAmphitheaters = async () => {
+      try {
+        setLoadingAmphitheaters(true);
+        const response = await fetch('http://localhost:8000/api/classrooms/amphitheaters');
+        const data = await response.json();
+        
+        if (data.status === "success") {
+          setAmphitheaters(data.data);
+        } else {
+          toast({
+            title: "Erreur",
+            description: "Impossible de charger les amphithéâtres",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        console.error("Error loading amphitheaters:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les amphithéâtres",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingAmphitheaters(false);
+      }
+    };
+
+    fetchAmphitheaters();
+  }, [toast]);
+
+  // Add useEffect for fetching available classrooms
+  useEffect(() => {
+    const fetchAvailableClassrooms = async () => {
+      if (!selectedClassroomDepartment || !form.getValues("date") || !form.getValues("startTime") || !form.getValues("endTime")) {
+        setAvailableClassrooms([]);
+        return;
+      }
+
+      try {
+        setLoadingClassrooms(true);
+        
+        // Format date as YYYY-MM-DD
+        const formattedDate = format(form.getValues("date"), "yyyy-MM-dd");
+        const startTime = form.getValues("startTime");
+        const endTime = form.getValues("endTime");
+
+        // First API call to get scheduled classrooms
+        const scheduledResponse = await fetch(
+          `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
+        );
+        const scheduledData = await scheduledResponse.json();
+
+        if (scheduledData.status === "success") {
+          const scheduledClassroomIds = scheduledData.data.scheduled_classrooms.map(c => c.id);
+
+          // Second API call to get available classrooms
+          const availableResponse = await fetch(
+            'http://localhost:8000/api/classrooms/not-in-list',
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                classroom_ids: scheduledClassroomIds
+              })
+            }
+          );
+          const availableData = await availableResponse.json();
+
+          if (availableData.status === "success") {
+            // Filter classrooms by selected department
+            const departmentClassrooms = availableData.data.filter(
+              classroom => classroom.departement === selectedClassroomDepartment
+            );
+            setAvailableClassrooms(departmentClassrooms);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading available classrooms:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les salles disponibles",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingClassrooms(false);
+      }
+    };
+
+    fetchAvailableClassrooms();
+  }, [selectedClassroomDepartment, form.watch("date"), form.watch("startTime"), form.watch("endTime"), toast]);
 
   const onFormSubmit = async (values) => {
     console.log("🚀 Form submission started with values:", values);
@@ -1007,7 +1114,270 @@ const ExamForm = ({
               </div>
             </div>
 
-            {/* Supervisors Field */}
+            {/* Students Field */}
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+                          <FormField
+                            control={form.control}
+                            name="students"
+                            render={() => (
+                              <FormItem>
+                                <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
+                                  <Users className="h-5 w-5" />
+                                  Étudiants
+                                </FormLabel>
+                                <Button
+                                  variant="outline"
+                                  type="button"
+                                  className="w-full bg-white flex items-center justify-center gap-2"
+                                  onClick={handleSelectStudentsClick}
+                                >
+                                  <Upload className="h-4 w-4" />
+                                  {selectedStudentsLocal.length === 0
+                                    ? "Importer la liste d'étudiants (CSV)"
+                                    : `${selectedStudentsLocal.length} Étudiants importés`}
+                                </Button>
+
+                                {/* Direct import dialog */}
+                                <Dialog
+                                  open={showImportCSV}
+                                  onOpenChange={setShowImportCSV}
+                                >
+                                  <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+                                    <DialogHeader>
+                                      <DialogTitle>
+                                        Importer la liste d'étudiants
+                                      </DialogTitle>
+                                    </DialogHeader>
+                                    <div className="flex-1 overflow-auto">
+                                      <ImportCSV onImportComplete={handleImportComplete} />
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+            </div>
+
+            {/* Classrooms Field */}
+          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+            <FormField
+              control={form.control}
+              name="classrooms"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
+                    <Building className="h-5 w-5" />
+                    Les locaux
+                  </FormLabel>
+
+                  {/* Type Selection */}
+                  <div className="flex gap-4 mb-4">
+                    <Button
+                      type="button"
+                      variant={selectedClassroomType === 'amphi' ? 'default' : 'outline'}
+                      onClick={() => setSelectedClassroomType('amphi')}
+                      className="flex-1"
+                    >
+                      Amphithéâtres
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={selectedClassroomType === 'classroom' ? 'default' : 'outline'}
+                      onClick={() => setSelectedClassroomType('classroom')}
+                      className="flex-1"
+                    >
+                      Salles de cours
+                    </Button>
+                  </div>
+
+                  {selectedClassroomType === 'amphi' && (
+                    <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                      {loadingAmphitheaters ? (
+                        <div className="text-center text-slate-500 py-2">
+                          Chargement des amphithéâtres...
+                        </div>
+                      ) : amphitheaters.length > 0 ? (
+                        amphitheaters.map((amphi) => (
+                          <div
+                            key={amphi.id}
+                            className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                          >
+                            <div className="flex items-start gap-2">
+                              <Checkbox
+                                id={`amphi-${amphi.id}`}
+                                checked={field.value.includes(amphi.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    field.onChange([...field.value, amphi.id]);
+                                  } else {
+                                    field.onChange(
+                                      field.value.filter(
+                                        (id) => id !== amphi.id
+                                      )
+                                    );
+                                  }
+                                }}
+                              />
+                              <label
+                                htmlFor={`amphi-${amphi.id}`}
+                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {amphi.nom_du_local} - Capacité: {amphi.capacite}
+                              </label>
+                            </div>
+                            <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
+                              Disponible
+                            </span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center text-slate-500 py-2">
+                          Aucun amphithéâtre disponible
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedClassroomType === 'classroom' && (
+                    <div className="space-y-4">
+                      {/* Department Selection for Classrooms */}
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-700 mb-2">
+                          Sélectionnez un département
+                        </h4>
+                        <Select
+                          onValueChange={(value) => setSelectedClassroomDepartment(value)}
+                          value={selectedClassroomDepartment}
+                        >
+                          <SelectTrigger className="w-full bg-white">
+                            <SelectValue placeholder="Sélectionnez un département" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {loadingDepartments ? (
+                              <div className="p-2 text-center text-slate-500">
+                                Chargement des départements...
+                              </div>
+                            ) : departments.length > 0 ? (
+                              departments.map((department) => (
+                                <SelectItem key={department} value={department}>
+                                  {department}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-2 text-center text-slate-500">
+                                Aucun département disponible
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Classrooms List */}
+                      {selectedClassroomDepartment && (
+                        <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                          {loadingClassrooms ? (
+                            <div className="text-center text-slate-500 py-2">
+                              Chargement des salles disponibles...
+                            </div>
+                          ) : availableClassrooms.length > 0 ? (
+                            availableClassrooms.map((classroom) => (
+                              <div
+                                key={classroom.id}
+                                className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <Checkbox
+                                    id={`classroom-${classroom.id}`}
+                                    checked={field.value.includes(classroom.id)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        field.onChange([...field.value, classroom.id]);
+                                      } else {
+                                        field.onChange(
+                                          field.value.filter(
+                                            (id) => id !== classroom.id
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`classroom-${classroom.id}`}
+                                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                  >
+                                    {classroom.nom_du_local} - Capacité: {classroom.capacite}
+                                  </label>
+                                </div>
+                                <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
+                                  Disponible
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center text-slate-500 py-2">
+                              Aucune salle disponible pour ce département à cette date et heure
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Selected Locaux Section */}
+                  {field.value.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-slate-200">
+                      <h4 className="text-sm font-medium text-slate-700 mb-3">
+                        Locaux sélectionnés ({field.value.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {field.value.map((selectedId) => {
+                          // Find the selected item from either amphitheaters or availableClassrooms
+                          const selectedItem = 
+                            amphitheaters.find(a => a.id === selectedId) ||
+                            availableClassrooms.find(c => c.id === selectedId);
+
+                          if (!selectedItem) return null;
+
+                          return (
+                            <div
+                              key={selectedId}
+                              className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
+                            >
+                              <div className="flex items-center gap-2">
+                                <Building className="h-4 w-4 text-slate-500" />
+                                <span className="text-sm">
+                                  {selectedItem.nom_du_local} - Capacité: {selectedItem.capacite}
+                                </span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                  field.onChange(
+                                    field.value.filter(id => id !== selectedId)
+                                  );
+                                }}
+                              >
+                                Retirer
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+            {/* Supervisors and Professors Field */}
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
               <FormField
                 control={form.control}
@@ -1018,9 +1388,68 @@ const ExamForm = ({
                       <Users className="h-5 w-5" />
                       Les superviseurs
                     </FormLabel>
+
+                    {/* Superviseurs List - Only show if not only classrooms selected */}
+                    {(!selectedClassroomType || selectedClassroomType === 'amphi') && (
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium text-slate-700">
+                            Superviseur
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-sm text-blue-600 hover:text-blue-700"
+                            onClick={() => setShowSuperviseursList(!showSuperviseursList)}
+                          >
+                            {showSuperviseursList ? "Masquer la liste des superviseurs" : "Afficher tous les superviseurs"}
+                          </Button>
+                        </div>
+                        <div className={showSuperviseursList ? "" : "hidden"}>
+                          {loadingSupervisors ? (
+                            <div className="text-center text-slate-500 py-2">
+                              Chargement des superviseurs...
+                            </div>
+                          ) : supervisorsByDepartment.length > 0 ? (
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                              {supervisorsByDepartment.map((supervisor) => (
+                                <div
+                                  key={supervisor.id}
+                                  className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value.includes(supervisor.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          field.onChange([...field.value, supervisor.id]);
+                                        } else {
+                                          field.onChange(
+                                            field.value.filter((id) => id !== supervisor.id)
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <label className="text-sm leading-none cursor-pointer flex-1">
+                                    {supervisor.prenom} {supervisor.nom} - {supervisor.poste}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center text-slate-500 py-2">
+                              Aucun superviseur disponible
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Department Selection and Professeurs List - Always visible */}
                     <div>
                       <h4 className="text-sm font-medium text-slate-700 mb-2">
-                        Sélectionnez un département
+                        Sélectionnez un département pour les professeurs
                       </h4>
                       <Select
                         onValueChange={(value) => setSelectedDepartment(value)}
@@ -1047,100 +1476,55 @@ const ExamForm = ({
                           )}
                         </SelectContent>
                       </Select>
-                    </div>
 
-                    {selectedDepartment && (
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-700 mb-2">
-                          Superviseurs disponibles
-                        </h4>
-                        {loadingSupervisors ? (
-                          <div className="text-center text-slate-500 py-2">
-                            Chargement des superviseurs...
-                          </div>
-                        ) : supervisorsByDepartment.length > 0 ? (
-                          <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                            {supervisorsByDepartment.map((supervisor) => (
-                              <div
-                                key={supervisor.id}
-                                className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
-                              >
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value.includes(
-                                      supervisor.id
-                                    )}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        field.onChange([
-                                          ...field.value,
-                                          supervisor.id,
-                                        ]);
-                                      } else {
-                                        field.onChange(
-                                          field.value.filter(
-                                            (id) => id !== supervisor.id
-                                          )
-                                        );
-                                      }
-                                    }}
-                                  />
-                                </FormControl>
-                                <label className="text-sm leading-none cursor-pointer flex-1">
-                                  {supervisor.prenom} {supervisor.nom} (
-                                  {supervisor.type || "Non spécifié"})
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center text-slate-500 py-2">
-                            Aucun superviseur trouvé pour ce département
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {field.value.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-700 mb-2 sticky top-0 bg-slate-50 py-1">
-                          Superviseurs sélectionnés ({field.value.length})
-                        </h4>
-                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
-                          {supervisorsByDepartment
-                            .filter((supervisor) =>
-                              field.value.includes(supervisor.id)
-                            )
-                            .map((supervisor) => (
-                              <div
-                                key={supervisor.id}
-                                className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
-                              >
-                                <FormControl>
-                                  <Checkbox
-                                    checked={true}
-                                    onCheckedChange={() => {
-                                      field.onChange(
-                                        field.value.filter(
-                                          (id) => id !== supervisor.id
-                                        )
-                                      );
-                                    }}
-                                  />
-                                </FormControl>
-                                <label className="text-sm leading-none cursor-pointer flex-1">
-                                  {supervisor.prenom} {supervisor.nom} (
-                                  {supervisor.type || "Non spécifié"})
-                                </label>
-                              </div>
-                            ))}
+                      {selectedDepartment && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium text-slate-700 mb-2">
+                            Professeur
+                          </h4>
+                          {loadingProfessors ? (
+                            <div className="text-center text-slate-500 py-2">
+                              Chargement des professeurs...
+                            </div>
+                          ) : professorsByDepartment.length > 0 ? (
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                              {professorsByDepartment.map((professor) => (
+                                <div
+                                  key={professor.id}
+                                  className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value.includes(professor.id)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          field.onChange([...field.value, professor.id]);
+                                        } else {
+                                          field.onChange(
+                                            field.value.filter((id) => id !== professor.id)
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <label className="text-sm leading-none cursor-pointer flex-1">
+                                    {professor.prenom} {professor.nom}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center text-slate-500 py-2">
+                              Aucun professeur disponible pour ce département
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     {field.value.length === 0 && (
                       <FormMessage>
-                        Veuillez sélectionner au moins un superviseur
+                        Veuillez sélectionner un superviseur et un professeur
                       </FormMessage>
                     )}
                   </FormItem>
@@ -1148,105 +1532,9 @@ const ExamForm = ({
               />
             </div>
 
-            {/* Students Field */}
-            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-              <FormField
-                control={form.control}
-                name="students"
-                render={() => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
-                      <Users className="h-5 w-5" />
-                      Étudiants
-                    </FormLabel>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      className="w-full bg-white flex items-center justify-center gap-2"
-                      onClick={handleSelectStudentsClick}
-                    >
-                      <Upload className="h-4 w-4" />
-                      {selectedStudentsLocal.length === 0
-                        ? "Importer la liste d'étudiants (CSV)"
-                        : `${selectedStudentsLocal.length} Étudiants importés`}
-                    </Button>
-
-                    {/* Direct import dialog */}
-                    <Dialog
-                      open={showImportCSV}
-                      onOpenChange={setShowImportCSV}
-                    >
-                      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
-                        <DialogHeader>
-                          <DialogTitle>
-                            Importer la liste d'étudiants
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="flex-1 overflow-auto">
-                          <ImportCSV onImportComplete={handleImportComplete} />
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
           </div>
 
-          {/* Classrooms Field */}
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-            <FormField
-              control={form.control}
-              name="classrooms"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
-                    <Building className="h-5 w-5" />
-                    Les locaux
-                  </FormLabel>
-                  <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                    {availableClassrooms.map((classroom) => (
-                      <div
-                        key={classroom.id}
-                        className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
-                      >
-                        <div className="flex items-start gap-2">
-                          <Checkbox
-                            id={`classroom-${classroom.id}`}
-                            checked={field.value.includes(classroom.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                field.onChange([...field.value, classroom.id]);
-                              } else {
-                                field.onChange(
-                                  field.value.filter(
-                                    (id) => id !== classroom.id
-                                  )
-                                );
-                              }
-                            }}
-                          />
-                          <label
-                            htmlFor={`classroom-${classroom.id}`}
-                            className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                          >
-                            {classroom.nom_du_local} ({classroom.departement}) -
-                            Capacité: {classroom.capacite}
-                          </label>
-                        </div>
-                        <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                          Disponible
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          
 
           {/* Form Footer - Fixed at bottom */}
           <div className="flex justify-end gap-2 mt-4 py-4 border-t bg-white sticky bottom-0">
@@ -1266,7 +1554,7 @@ const ExamForm = ({
                 type="button"
                 onClick={handleSendInvitations}
                 disabled={sendingInvitations}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {sendingInvitations ? (
                   <div className="flex items-center gap-2">
@@ -1282,7 +1570,7 @@ const ExamForm = ({
               type="submit"
               disabled={loading || sendingInvitations}
               onClick={() => console.log("🔴 Submit button clicked")}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {loading ? (
                 <div className="flex items-center gap-2">

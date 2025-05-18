@@ -23,7 +23,6 @@ import { StudentsContext } from "../context/StudentsProvider";
 
 const ImportCSV = ({ onImportComplete }) => {
   const [file, setFile] = useState(null);
-  const [previewing, setPreviewing] = useState(false);
   const [parseError, setParseError] = useState(null);
   const [parsedData, setParsedData] = useState([]);
   const [mappings, setMappings] = useState({});
@@ -34,7 +33,6 @@ const ImportCSV = ({ onImportComplete }) => {
 
   const resetState = () => {
     setFile(null);
-    setPreviewing(false);
     setParseError(null);
     setParsedData([]);
     setHeaders([]);
@@ -49,15 +47,13 @@ const ImportCSV = ({ onImportComplete }) => {
     if (selectedFile) {
       setFile(selectedFile);
       setParseError(null);
+      parseCSV(selectedFile);
     }
   };
 
-  const parseCSV = async () => {
-    if (!file) return;
-
-    setPreviewing(true);
+  const parseCSV = async (selectedFile) => {
     try {
-      const text = await file.text();
+      const text = await selectedFile.text();
       const rows = text.split("\n");
 
       if (rows.length < 2) {
@@ -108,15 +104,14 @@ const ImportCSV = ({ onImportComplete }) => {
       setParseError(
         error instanceof Error ? error.message : "Failed to parse CSV file"
       );
-      setPreviewing(false);
     }
   };
 
   const handleImport = () => {
-    if (!file || !previewing || parsedData.length === 0) {
+    if (!file || parsedData.length === 0) {
       toast({
         title: "Import Error",
-        description: "Please upload and preview a CSV file first",
+        description: "Please upload a valid CSV file first",
         variant: "destructive",
       });
       return;
@@ -177,17 +172,6 @@ const ImportCSV = ({ onImportComplete }) => {
 
   return (
     <div className="relative">
-      {/* Persistent "Import Students" button positioned on the right side */}
-      <div className="absolute top-4 right-4 z-20">
-        <Button
-          onClick={handleImport}
-          className="bg-primary text-white shadow-md hover:bg-primary/90"
-        >
-          <Check className="h-4 w-4 mr-2" />
-          Import Students
-        </Button>
-      </div>
-
       <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -196,130 +180,40 @@ const ImportCSV = ({ onImportComplete }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!previewing ? (
-            <div className="space-y-4">
-              <div className="border-2 border-dashed rounded-md p-6 text-center">
-                <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-medium mb-1">Charger le fichier CSV </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  The file should include student information with headers
-                </p>
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileChange}
-                  className="max-w-sm mx-auto"
-                />
-              </div>
-
-              {parseError && (
-                <div className="bg-destructive/10 text-destructive p-3 rounded-md flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                  <span>{parseError}</span>
-                </div>
-              )}
+          <div className="space-y-4">
+            <div className="border-2 border-dashed rounded-md p-6 text-center">
+              <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+              <h3 className="font-medium mb-1">Charger le fichier CSV </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                The file should include student information with headers
+              </p>
+              <Input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="max-w-sm mx-auto"
+              />
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="font-medium">
-                  Map CSV Columns to Student Fields
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                  {headers.map((header) => (
-                    <div key={header} className="space-y-2">
-                      <label className="text-sm font-medium">{header}</label>
-                      <select
-                        className="w-full p-2 border rounded-md"
-                        value={mappings[header] || ""}
-                        onChange={(e) =>
-                          handleMappingChange(header, e.target.value)
-                        }
-                      >
-                        <option value="">-- Skip this column --</option>
-                        <option value="studentId">Student ID</option>
-                        <option value="firstName">First Name</option>
-                        <option value="lastName">Last Name</option>
-                        <option value="email">Email</option>
-                        <option value="program">Program</option>
-                        <option value="year">Year</option>
-                      </select>
-                    </div>
-                  ))}
-                </div>
+
+            {parseError && (
+              <div className="bg-destructive/10 text-destructive p-3 rounded-md flex items-start gap-2">
+                <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                <span>{parseError}</span>
               </div>
+            )}
 
-              <div className="space-y-4">
-                <h3 className="font-medium">Preview Data</h3>
-                <div className="border rounded-md overflow-x-auto overflow-y-auto max-h-64 w-full">
-                  <div className="min-w-full">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          {headers.map((header) => (
-                            <TableHead key={header}>
-                              {header}
-                              {mappings[header] && (
-                                <span className="ml-1 text-xs text-primary">
-                                  → {mappings[header]}
-                                </span>
-                              )}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {parsedData.slice(0, 5).map((row, rowIndex) => (
-                          <TableRow key={rowIndex}>
-                            {headers.map((header, cellIndex) => (
-                              <TableCell key={`${rowIndex}-${cellIndex}`}>
-                                {row[header]}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-                {parsedData.length > 5 && (
-                  <p className="text-sm text-muted-foreground">
-                    Showing 5 of {parsedData.length} rows
-                  </p>
-                )}
-              </div>
-
-              {parseError && (
-                <div className="bg-destructive/10 text-destructive p-3 rounded-md flex items-start gap-2">
-                  <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                  <span>{parseError}</span>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" onClick={resetState}>
-            <X className="h-4 w-4 mr-2" />
-            Cancel
-          </Button>
-
-          {!previewing ? (
-            <Button onClick={parseCSV} disabled={!file}>
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Preview CSV
-            </Button>
-          ) : (
-            <div className="invisible">
-              {/* This is just a placeholder to maintain layout */}
-              <Button>
+            <div className="flex justify-end mt-4">
+              <Button
+                onClick={handleImport}
+                className="bg-primary text-white shadow-md hover:bg-primary/90"
+              >
                 <Check className="h-4 w-4 mr-2" />
-                Import Students
+                Importer les étudiants
               </Button>
             </div>
-          )}
-        </CardFooter>
+          </div>
+        </CardContent>
       </Card>
     </div>
   );
