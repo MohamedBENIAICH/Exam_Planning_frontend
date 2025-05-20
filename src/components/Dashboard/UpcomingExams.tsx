@@ -41,8 +41,8 @@ import { useToast } from "@/components/ui/use-toast";
 interface ApiExam {
   id: number;
   cycle: string;
-  filiere: string;
-  module: string;
+  filiere_name: string;
+  module_name: string;
   date_examen: string;
   heure_debut: string;
   duree: number;
@@ -313,13 +313,13 @@ const ExamSection = ({
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-gray-500" />
                         <h3 className="font-medium text-gray-900">
-                          {examen.module}
+                          {examen.module_name}
                         </h3>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <School className="h-3 w-3" />
                         <span>
-                          {examen.filiere} • {examen.cycle}
+                          {examen.filiere_name} • {examen.cycle}
                         </span>
                       </div>
                     </div>
@@ -428,7 +428,9 @@ const ExamSection = ({
               Détails de l'Examen
             </DialogTitle>
             {selectedExam && (
-              <p className="text-gray-500 font-medium">{selectedExam.module}</p>
+              <p className="text-gray-500 font-medium">
+                {selectedExam.module_name}
+              </p>
             )}
           </DialogHeader>
           {selectedExam && (
@@ -449,7 +451,7 @@ const ExamSection = ({
                       <div className="flex justify-between">
                         <span className="text-gray-600">Filière:</span>
                         <span className="font-medium">
-                          {selectedExam.filiere}
+                          {selectedExam.filiere_name}
                         </span>
                       </div>
                     </div>
@@ -587,7 +589,8 @@ const ExamSection = ({
             <DialogTitle>Confirmer la suppression</DialogTitle>
             <DialogDescription>
               Êtes-vous sûr de vouloir supprimer l'examen de{" "}
-              {examToDelete?.module} ? Cette action ne peut pas être annulée.
+              {examToDelete?.module_name} ? Cette action ne peut pas être
+              annulée.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -618,7 +621,9 @@ const UpcomingExams = () => {
   useEffect(() => {
     const fetchExams = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/exams");
+        const response = await fetch(
+          "http://127.0.0.1:8000/api/exams/with-names"
+        );
         const data = await response.json();
 
         if (data.status === "success") {

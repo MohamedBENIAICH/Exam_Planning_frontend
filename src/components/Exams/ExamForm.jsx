@@ -102,7 +102,8 @@ const ExamForm = ({
   const { toast } = useToast();
   const [assignments, setAssignments] = useState(null);
   const [selectedClassroomType, setSelectedClassroomType] = useState(null); // 'amphi' or 'classroom'
-  const [selectedClassroomDepartment, setSelectedClassroomDepartment] = useState("");
+  const [selectedClassroomDepartment, setSelectedClassroomDepartment] =
+    useState("");
   const [amphitheaters, setAmphitheaters] = useState([]);
   const [loadingAmphitheaters, setLoadingAmphitheaters] = useState(false);
   const [loadingClassrooms, setLoadingClassrooms] = useState(false);
@@ -261,12 +262,14 @@ const ExamForm = ({
     const loadDepartments = async () => {
       try {
         setLoadingDepartments(true);
-        const response = await fetch('http://localhost:8000/api/departements');
+        const response = await fetch("http://localhost:8000/api/departements");
         const data = await response.json();
-        
+
         if (data.status === "success") {
           // Extract unique department names
-          const uniqueDepartments = [...new Set(data.data.map(dept => dept.nom_departement))];
+          const uniqueDepartments = [
+            ...new Set(data.data.map((dept) => dept.nom_departement)),
+          ];
           setDepartments(uniqueDepartments);
         } else {
           toast({
@@ -296,16 +299,24 @@ const ExamForm = ({
       try {
         // Fetch superviseurs (no department dependency)
         setLoadingSupervisors(true);
-        const superviseursResponse = await fetch(`http://localhost:8000/api/superviseurs`);
+        const superviseursResponse = await fetch(
+          `http://localhost:8000/api/superviseurs`
+        );
         const superviseursData = await superviseursResponse.json();
-        setSupervisorsByDepartment(Array.isArray(superviseursData) ? superviseursData : []);
+        setSupervisorsByDepartment(
+          Array.isArray(superviseursData) ? superviseursData : []
+        );
 
         // Only fetch professeurs if department is selected
         if (selectedDepartment) {
           setLoadingProfessors(true);
-          const professeursResponse = await fetch(`http://localhost:8000/api/professeurs/by-departement?departement=${selectedDepartment}`);
+          const professeursResponse = await fetch(
+            `http://localhost:8000/api/professeurs/by-departement?departement=${selectedDepartment}`
+          );
           const professeursData = await professeursResponse.json();
-          setProfessorsByDepartment(Array.isArray(professeursData) ? professeursData : []);
+          setProfessorsByDepartment(
+            Array.isArray(professeursData) ? professeursData : []
+          );
         } else {
           setProfessorsByDepartment([]);
         }
@@ -415,9 +426,11 @@ const ExamForm = ({
     const fetchAmphitheaters = async () => {
       try {
         setLoadingAmphitheaters(true);
-        const response = await fetch('http://localhost:8000/api/classrooms/amphitheaters');
+        const response = await fetch(
+          "http://localhost:8000/api/classrooms/amphitheaters"
+        );
         const data = await response.json();
-        
+
         if (data.status === "success") {
           setAmphitheaters(data.data);
         } else {
@@ -445,14 +458,19 @@ const ExamForm = ({
   // Add useEffect for fetching available classrooms
   useEffect(() => {
     const fetchAvailableClassrooms = async () => {
-      if (!selectedClassroomDepartment || !form.getValues("date") || !form.getValues("startTime") || !form.getValues("endTime")) {
+      if (
+        !selectedClassroomDepartment ||
+        !form.getValues("date") ||
+        !form.getValues("startTime") ||
+        !form.getValues("endTime")
+      ) {
         setAvailableClassrooms([]);
         return;
       }
 
       try {
         setLoadingClassrooms(true);
-        
+
         // Format date as YYYY-MM-DD
         const formattedDate = format(form.getValues("date"), "yyyy-MM-dd");
         const startTime = form.getValues("startTime");
@@ -465,19 +483,20 @@ const ExamForm = ({
         const scheduledData = await scheduledResponse.json();
 
         if (scheduledData.status === "success") {
-          const scheduledClassroomIds = scheduledData.data.scheduled_classrooms.map(c => c.id);
+          const scheduledClassroomIds =
+            scheduledData.data.scheduled_classrooms.map((c) => c.id);
 
           // Second API call to get available classrooms
           const availableResponse = await fetch(
-            'http://localhost:8000/api/classrooms/not-in-list',
+            "http://localhost:8000/api/classrooms/not-in-list",
             {
-              method: 'POST',
+              method: "POST",
               headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
               },
               body: JSON.stringify({
-                classroom_ids: scheduledClassroomIds
-              })
+                classroom_ids: scheduledClassroomIds,
+              }),
             }
           );
           const availableData = await availableResponse.json();
@@ -485,7 +504,8 @@ const ExamForm = ({
           if (availableData.status === "success") {
             // Filter classrooms by selected department
             const departmentClassrooms = availableData.data.filter(
-              classroom => classroom.departement === selectedClassroomDepartment
+              (classroom) =>
+                classroom.departement === selectedClassroomDepartment
             );
             setAvailableClassrooms(departmentClassrooms);
           }
@@ -503,7 +523,13 @@ const ExamForm = ({
     };
 
     fetchAvailableClassrooms();
-  }, [selectedClassroomDepartment, form.watch("date"), form.watch("startTime"), form.watch("endTime"), toast]);
+  }, [
+    selectedClassroomDepartment,
+    form.watch("date"),
+    form.watch("startTime"),
+    form.watch("endTime"),
+    toast,
+  ]);
 
   const onFormSubmit = async (values) => {
     console.log("🚀 Form submission started with values:", values);
@@ -596,6 +622,7 @@ const ExamForm = ({
           email:
             student.email || `${student.studentId || student.id}@example.com`,
           program: student.program || values.filiere,
+          cne: student.cne,
         })),
       };
 
@@ -716,6 +743,7 @@ const ExamForm = ({
           firstName: student.firstName,
           lastName: student.lastName,
           email: student.email,
+          cne: student.cne,
           program: student.program,
           cin: student.cin,
         })),
@@ -1116,266 +1144,295 @@ const ExamForm = ({
 
             {/* Students Field */}
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-                          <FormField
-                            control={form.control}
-                            name="students"
-                            render={() => (
-                              <FormItem>
-                                <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
-                                  <Users className="h-5 w-5" />
-                                  Étudiants
-                                </FormLabel>
-                                <Button
-                                  variant="outline"
-                                  type="button"
-                                  className="w-full bg-white flex items-center justify-center gap-2"
-                                  onClick={handleSelectStudentsClick}
-                                >
-                                  <Upload className="h-4 w-4" />
-                                  {selectedStudentsLocal.length === 0
-                                    ? "Importer la liste d'étudiants (CSV)"
-                                    : `${selectedStudentsLocal.length} Étudiants importés`}
-                                </Button>
+              <FormField
+                control={form.control}
+                name="students"
+                render={() => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
+                      <Users className="h-5 w-5" />
+                      Étudiants
+                    </FormLabel>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      className="w-full bg-white flex items-center justify-center gap-2"
+                      onClick={handleSelectStudentsClick}
+                    >
+                      <Upload className="h-4 w-4" />
+                      {selectedStudentsLocal.length === 0
+                        ? "Importer la liste d'étudiants (CSV)"
+                        : `${selectedStudentsLocal.length} Étudiants importés`}
+                    </Button>
 
-                                {/* Direct import dialog */}
-                                <Dialog
-                                  open={showImportCSV}
-                                  onOpenChange={setShowImportCSV}
-                                >
-                                  <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
-                                    <DialogHeader>
-                                      <DialogTitle>
-                                        Importer la liste d'étudiants
-                                      </DialogTitle>
-                                    </DialogHeader>
-                                    <div className="flex-1 overflow-auto">
-                                      <ImportCSV onImportComplete={handleImportComplete} />
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
+                    {/* Direct import dialog */}
+                    <Dialog
+                      open={showImportCSV}
+                      onOpenChange={setShowImportCSV}
+                    >
+                      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+                        <DialogHeader>
+                          <DialogTitle>
+                            Importer la liste d'étudiants
+                          </DialogTitle>
+                        </DialogHeader>
+                        <div className="flex-1 overflow-auto">
+                          <ImportCSV onImportComplete={handleImportComplete} />
+                        </div>
+                      </DialogContent>
+                    </Dialog>
 
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             {/* Classrooms Field */}
-          <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
-            <FormField
-              control={form.control}
-              name="classrooms"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
-                    <Building className="h-5 w-5" />
-                    Les locaux
-                  </FormLabel>
+            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
+              <FormField
+                control={form.control}
+                name="classrooms"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
+                      <Building className="h-5 w-5" />
+                      Les locaux
+                    </FormLabel>
 
-                  {/* Type Selection */}
-                  <div className="flex gap-4 mb-4">
-                    <Button
-                      type="button"
-                      variant={selectedClassroomType === 'amphi' ? 'default' : 'outline'}
-                      onClick={() => setSelectedClassroomType('amphi')}
-                      className="flex-1"
-                    >
-                      Amphithéâtres
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={selectedClassroomType === 'classroom' ? 'default' : 'outline'}
-                      onClick={() => setSelectedClassroomType('classroom')}
-                      className="flex-1"
-                    >
-                      Salles de cours
-                    </Button>
-                  </div>
-
-                  {selectedClassroomType === 'amphi' && (
-                    <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                      {loadingAmphitheaters ? (
-                        <div className="text-center text-slate-500 py-2">
-                          Chargement des amphithéâtres...
-                        </div>
-                      ) : amphitheaters.length > 0 ? (
-                        amphitheaters.map((amphi) => (
-                          <div
-                            key={amphi.id}
-                            className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
-                          >
-                            <div className="flex items-start gap-2">
-                              <Checkbox
-                                id={`amphi-${amphi.id}`}
-                                checked={field.value.includes(amphi.id)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    field.onChange([...field.value, amphi.id]);
-                                  } else {
-                                    field.onChange(
-                                      field.value.filter(
-                                        (id) => id !== amphi.id
-                                      )
-                                    );
-                                  }
-                                }}
-                              />
-                              <label
-                                htmlFor={`amphi-${amphi.id}`}
-                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                              >
-                                {amphi.nom_du_local} - Capacité: {amphi.capacite}
-                              </label>
-                            </div>
-                            <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                              Disponible
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center text-slate-500 py-2">
-                          Aucun amphithéâtre disponible
-                        </div>
-                      )}
+                    {/* Type Selection */}
+                    <div className="flex gap-4 mb-4">
+                      <Button
+                        type="button"
+                        variant={
+                          selectedClassroomType === "amphi"
+                            ? "default"
+                            : "outline"
+                        }
+                        onClick={() => setSelectedClassroomType("amphi")}
+                        className="flex-1"
+                      >
+                        Amphithéâtres
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={
+                          selectedClassroomType === "classroom"
+                            ? "default"
+                            : "outline"
+                        }
+                        onClick={() => setSelectedClassroomType("classroom")}
+                        className="flex-1"
+                      >
+                        Salles de cours
+                      </Button>
                     </div>
-                  )}
 
-                  {selectedClassroomType === 'classroom' && (
-                    <div className="space-y-4">
-                      {/* Department Selection for Classrooms */}
-                      <div>
-                        <h4 className="text-sm font-medium text-slate-700 mb-2">
-                          Sélectionnez un département
-                        </h4>
-                        <Select
-                          onValueChange={(value) => setSelectedClassroomDepartment(value)}
-                          value={selectedClassroomDepartment}
-                        >
-                          <SelectTrigger className="w-full bg-white">
-                            <SelectValue placeholder="Sélectionnez un département" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {loadingDepartments ? (
-                              <div className="p-2 text-center text-slate-500">
-                                Chargement des départements...
+                    {selectedClassroomType === "amphi" && (
+                      <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                        {loadingAmphitheaters ? (
+                          <div className="text-center text-slate-500 py-2">
+                            Chargement des amphithéâtres...
+                          </div>
+                        ) : amphitheaters.length > 0 ? (
+                          amphitheaters.map((amphi) => (
+                            <div
+                              key={amphi.id}
+                              className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                            >
+                              <div className="flex items-start gap-2">
+                                <Checkbox
+                                  id={`amphi-${amphi.id}`}
+                                  checked={field.value.includes(amphi.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      field.onChange([
+                                        ...field.value,
+                                        amphi.id,
+                                      ]);
+                                    } else {
+                                      field.onChange(
+                                        field.value.filter(
+                                          (id) => id !== amphi.id
+                                        )
+                                      );
+                                    }
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`amphi-${amphi.id}`}
+                                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                >
+                                  {amphi.nom_du_local} - Capacité:{" "}
+                                  {amphi.capacite}
+                                </label>
                               </div>
-                            ) : departments.length > 0 ? (
-                              departments.map((department) => (
-                                <SelectItem key={department} value={department}>
-                                  {department}
-                                </SelectItem>
+                              <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
+                                Disponible
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center text-slate-500 py-2">
+                            Aucun amphithéâtre disponible
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedClassroomType === "classroom" && (
+                      <div className="space-y-4">
+                        {/* Department Selection for Classrooms */}
+                        <div>
+                          <h4 className="text-sm font-medium text-slate-700 mb-2">
+                            Sélectionnez un département
+                          </h4>
+                          <Select
+                            onValueChange={(value) =>
+                              setSelectedClassroomDepartment(value)
+                            }
+                            value={selectedClassroomDepartment}
+                          >
+                            <SelectTrigger className="w-full bg-white">
+                              <SelectValue placeholder="Sélectionnez un département" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {loadingDepartments ? (
+                                <div className="p-2 text-center text-slate-500">
+                                  Chargement des départements...
+                                </div>
+                              ) : departments.length > 0 ? (
+                                departments.map((department) => (
+                                  <SelectItem
+                                    key={department}
+                                    value={department}
+                                  >
+                                    {department}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <div className="p-2 text-center text-slate-500">
+                                  Aucun département disponible
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Classrooms List */}
+                        {selectedClassroomDepartment && (
+                          <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                            {loadingClassrooms ? (
+                              <div className="text-center text-slate-500 py-2">
+                                Chargement des salles disponibles...
+                              </div>
+                            ) : availableClassrooms.length > 0 ? (
+                              availableClassrooms.map((classroom) => (
+                                <div
+                                  key={classroom.id}
+                                  className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <Checkbox
+                                      id={`classroom-${classroom.id}`}
+                                      checked={field.value.includes(
+                                        classroom.id
+                                      )}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          field.onChange([
+                                            ...field.value,
+                                            classroom.id,
+                                          ]);
+                                        } else {
+                                          field.onChange(
+                                            field.value.filter(
+                                              (id) => id !== classroom.id
+                                            )
+                                          );
+                                        }
+                                      }}
+                                    />
+                                    <label
+                                      htmlFor={`classroom-${classroom.id}`}
+                                      className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                    >
+                                      {classroom.nom_du_local} - Capacité:{" "}
+                                      {classroom.capacite}
+                                    </label>
+                                  </div>
+                                  <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
+                                    Disponible
+                                  </span>
+                                </div>
                               ))
                             ) : (
-                              <div className="p-2 text-center text-slate-500">
-                                Aucun département disponible
+                              <div className="text-center text-slate-500 py-2">
+                                Aucune salle disponible pour ce département à
+                                cette date et heure
                               </div>
                             )}
-                          </SelectContent>
-                        </Select>
+                          </div>
+                        )}
                       </div>
+                    )}
 
-                      {/* Classrooms List */}
-                      {selectedClassroomDepartment && (
-                        <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                          {loadingClassrooms ? (
-                            <div className="text-center text-slate-500 py-2">
-                              Chargement des salles disponibles...
-                            </div>
-                          ) : availableClassrooms.length > 0 ? (
-                            availableClassrooms.map((classroom) => (
+                    {/* Selected Locaux Section */}
+                    {field.value.length > 0 && (
+                      <div className="mt-6 pt-4 border-t border-slate-200">
+                        <h4 className="text-sm font-medium text-slate-700 mb-3">
+                          Locaux sélectionnés ({field.value.length})
+                        </h4>
+                        <div className="space-y-2">
+                          {field.value.map((selectedId) => {
+                            // Find the selected item from either amphitheaters or availableClassrooms
+                            const selectedItem =
+                              amphitheaters.find((a) => a.id === selectedId) ||
+                              availableClassrooms.find(
+                                (c) => c.id === selectedId
+                              );
+
+                            if (!selectedItem) return null;
+
+                            return (
                               <div
-                                key={classroom.id}
-                                className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                                key={selectedId}
+                                className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
                               >
-                                <div className="flex items-start gap-2">
-                                  <Checkbox
-                                    id={`classroom-${classroom.id}`}
-                                    checked={field.value.includes(classroom.id)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        field.onChange([...field.value, classroom.id]);
-                                      } else {
-                                        field.onChange(
-                                          field.value.filter(
-                                            (id) => id !== classroom.id
-                                          )
-                                        );
-                                      }
-                                    }}
-                                  />
-                                  <label
-                                    htmlFor={`classroom-${classroom.id}`}
-                                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                  >
-                                    {classroom.nom_du_local} - Capacité: {classroom.capacite}
-                                  </label>
+                                <div className="flex items-center gap-2">
+                                  <Building className="h-4 w-4 text-slate-500" />
+                                  <span className="text-sm">
+                                    {selectedItem.nom_du_local} - Capacité:{" "}
+                                    {selectedItem.capacite}
+                                  </span>
                                 </div>
-                                <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                                  Disponible
-                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => {
+                                    field.onChange(
+                                      field.value.filter(
+                                        (id) => id !== selectedId
+                                      )
+                                    );
+                                  }}
+                                >
+                                  Retirer
+                                </Button>
                               </div>
-                            ))
-                          ) : (
-                            <div className="text-center text-slate-500 py-2">
-                              Aucune salle disponible pour ce département à cette date et heure
-                            </div>
-                          )}
+                            );
+                          })}
                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Selected Locaux Section */}
-                  {field.value.length > 0 && (
-                    <div className="mt-6 pt-4 border-t border-slate-200">
-                      <h4 className="text-sm font-medium text-slate-700 mb-3">
-                        Locaux sélectionnés ({field.value.length})
-                      </h4>
-                      <div className="space-y-2">
-                        {field.value.map((selectedId) => {
-                          // Find the selected item from either amphitheaters or availableClassrooms
-                          const selectedItem = 
-                            amphitheaters.find(a => a.id === selectedId) ||
-                            availableClassrooms.find(c => c.id === selectedId);
-
-                          if (!selectedItem) return null;
-
-                          return (
-                            <div
-                              key={selectedId}
-                              className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
-                            >
-                              <div className="flex items-center gap-2">
-                                <Building className="h-4 w-4 text-slate-500" />
-                                <span className="text-sm">
-                                  {selectedItem.nom_du_local} - Capacité: {selectedItem.capacite}
-                                </span>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={() => {
-                                  field.onChange(
-                                    field.value.filter(id => id !== selectedId)
-                                  );
-                                }}
-                              >
-                                Retirer
-                              </Button>
-                            </div>
-                          );
-                        })}
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Supervisors and Professors Field */}
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
@@ -1390,7 +1447,8 @@ const ExamForm = ({
                     </FormLabel>
 
                     {/* Superviseurs List - Only show if not only classrooms selected */}
-                    {(!selectedClassroomType || selectedClassroomType === 'amphi') && (
+                    {(!selectedClassroomType ||
+                      selectedClassroomType === "amphi") && (
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-sm font-medium text-slate-700">
@@ -1400,9 +1458,13 @@ const ExamForm = ({
                             type="button"
                             variant="ghost"
                             className="text-sm text-blue-600 hover:text-blue-700"
-                            onClick={() => setShowSuperviseursList(!showSuperviseursList)}
+                            onClick={() =>
+                              setShowSuperviseursList(!showSuperviseursList)
+                            }
                           >
-                            {showSuperviseursList ? "Masquer la liste des superviseurs" : "Afficher tous les superviseurs"}
+                            {showSuperviseursList
+                              ? "Masquer la liste des superviseurs"
+                              : "Afficher tous les superviseurs"}
                           </Button>
                         </div>
                         <div className={showSuperviseursList ? "" : "hidden"}>
@@ -1419,20 +1481,28 @@ const ExamForm = ({
                                 >
                                   <FormControl>
                                     <Checkbox
-                                      checked={field.value.includes(supervisor.id)}
+                                      checked={field.value.includes(
+                                        supervisor.id
+                                      )}
                                       onCheckedChange={(checked) => {
                                         if (checked) {
-                                          field.onChange([...field.value, supervisor.id]);
+                                          field.onChange([
+                                            ...field.value,
+                                            supervisor.id,
+                                          ]);
                                         } else {
                                           field.onChange(
-                                            field.value.filter((id) => id !== supervisor.id)
+                                            field.value.filter(
+                                              (id) => id !== supervisor.id
+                                            )
                                           );
                                         }
                                       }}
                                     />
                                   </FormControl>
                                   <label className="text-sm leading-none cursor-pointer flex-1">
-                                    {supervisor.prenom} {supervisor.nom} - {supervisor.poste}
+                                    {supervisor.prenom} {supervisor.nom} -{" "}
+                                    {supervisor.poste}
                                   </label>
                                 </div>
                               ))}
@@ -1495,13 +1565,20 @@ const ExamForm = ({
                                 >
                                   <FormControl>
                                     <Checkbox
-                                      checked={field.value.includes(professor.id)}
+                                      checked={field.value.includes(
+                                        professor.id
+                                      )}
                                       onCheckedChange={(checked) => {
                                         if (checked) {
-                                          field.onChange([...field.value, professor.id]);
+                                          field.onChange([
+                                            ...field.value,
+                                            professor.id,
+                                          ]);
                                         } else {
                                           field.onChange(
-                                            field.value.filter((id) => id !== professor.id)
+                                            field.value.filter(
+                                              (id) => id !== professor.id
+                                            )
                                           );
                                         }
                                       }}
@@ -1531,10 +1608,7 @@ const ExamForm = ({
                 )}
               />
             </div>
-
           </div>
-
-          
 
           {/* Form Footer - Fixed at bottom */}
           <div className="flex justify-end gap-2 mt-4 py-4 border-t bg-white sticky bottom-0">
