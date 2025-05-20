@@ -1,69 +1,63 @@
-# Welcome to your Lovable project
+# Exam Scheduler
 
-## Project info
+Un système de gestion des examens développé avec React, TypeScript et shadcn-ui.
 
-**URL**: https://lovable.dev/projects/04fcccf9-c2f1-4bb9-8dc3-a43b6c5eea52
+## Prérequis
 
-## How can I edit this code?
+Avant de commencer, assurez-vous d'avoir installé :
 
-There are several ways of editing your application.
+- Node.js (version 18 ou supérieure)
+- npm (généralement installé avec Node.js)
+- Git
 
-**Use Lovable**
+## Installation
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/04fcccf9-c2f1-4bb9-8dc3-a43b6c5eea52) and start prompting.
+1. Clonez le dépôt :
 
-Changes made via Lovable will be committed automatically to this repo.
+```bash
+git clone https://github.com/MohamedBENIAICH/Exam_Planning_frontend.git
+```
 
-**Use your preferred IDE**
+2. Installez les dépendances :
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```bash
+npm install
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Développement
 
-Follow these steps:
+Pour lancer le serveur de développement :
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+L'application sera accessible à l'adresse : `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Technologies utilisées
 
-**Use GitHub Codespaces**
+- [React](https://reactjs.org/) - Bibliothèque JavaScript pour construire des interfaces utilisateur
+- [TypeScript](https://www.typescriptlang.org/) - Superset JavaScript typé
+- [Vite](https://vitejs.dev/) - Outil de build moderne
+- [shadcn-ui](https://ui.shadcn.com/) - Composants UI réutilisables
+- [Tailwind CSS](https://tailwindcss.com/) - Framework CSS utilitaire
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Structure du projet
 
-## What technologies are used for this project?
+```
+src/
+  ├── components/     # Composants React réutilisables
+  ├── pages/         # Pages de l'application
+  ├── hooks/         # Custom React hooks
+  ├── utils/         # Fonctions utilitaires
+  ├── types/         # Types TypeScript
+  └── styles/        # Fichiers de style
+```
 
-This project is built with .
+## Scripts disponibles
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/04fcccf9-c2f1-4bb9-8dc3-a43b6c5eea52) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+- `npm run dev` - Lance le serveur de développement
+- `npm run build` - Crée une version de production
+- `npm run preview` - Prévisualise la version de production localement
+- `npm run lint` - Vérifie le code avec ESLint
+- `npm run type-check` - Vérifie les types TypeScript
