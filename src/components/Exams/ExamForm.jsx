@@ -50,7 +50,6 @@ import {
   getFilieresByFormation,
   getModulesByFormationAndFiliere,
 } from "@/services/formationService";
-// import { Spinner } from "@/components/ui/spinner"; // Uncomment if you have a Spinner component
 
 const formSchema = z.object({
   formation: z.string().min(1, "La formation est requise"),
@@ -76,6 +75,11 @@ const ExamForm = ({
   setSelectedStudents,
   setImportedStudents,
 }) => {
+  // Add debug logging for exam data
+  useEffect(() => {
+    console.log("Exam data received:", exam);
+  }, [exam]);
+
   const [selectedStudentsLocal, setSelectedStudentsLocal] = useState(
     exam?.students || []
   );
@@ -85,7 +89,7 @@ const ExamForm = ({
   const [loading, setLoading] = useState(false);
   const [sendingInvitations, setSendingInvitations] = useState(false);
   const [examCreated, setExamCreated] = useState(false);
-  const [examId, setExamId] = useState(null);
+  const [examId, setExamId] = useState(exam?.id || null);
   const [availableClassrooms, setAvailableClassrooms] = useState([]);
   const [supervisorsByDepartment, setSupervisorsByDepartment] = useState([]);
   const [professorsByDepartment, setProfessorsByDepartment] = useState([]);
@@ -101,9 +105,8 @@ const ExamForm = ({
   const [loadingModules, setLoadingModules] = useState(false);
   const { toast } = useToast();
   const [assignments, setAssignments] = useState(null);
-  const [selectedClassroomType, setSelectedClassroomType] = useState(null); // 'amphi' or 'classroom'
-  const [selectedClassroomDepartment, setSelectedClassroomDepartment] =
-    useState("");
+  const [selectedClassroomType, setSelectedClassroomType] = useState(null);
+  const [selectedClassroomDepartment, setSelectedClassroomDepartment] = useState("");
   const [amphitheaters, setAmphitheaters] = useState([]);
   const [loadingAmphitheaters, setLoadingAmphitheaters] = useState(false);
   const [loadingClassrooms, setLoadingClassrooms] = useState(false);
@@ -113,22 +116,28 @@ const ExamForm = ({
     resolver: zodResolver(formSchema),
     defaultValues: exam
       ? {
-          formation: exam.formation,
-          filiere: exam.filiere,
-          semester: exam.semester || "",
-          module: exam.module,
-          date: exam.date ? new Date(exam.date) : new Date(),
-          startTime: exam.startTime,
-          endTime: exam.endTime,
-          classrooms: exam.classrooms,
-          supervisors: exam.supervisors
-            ? exam.supervisors.map((id) => {
+          formation: exam.formation?.toString() || "",
+          filiere: exam.filiere?.toString() || "",
+          semester: exam.semestre?.toString() || "",
+          module: exam.module?.toString() || "",
+          date: exam.date_examen ? new Date(exam.date_examen) : new Date(),
+          startTime: exam.heure_debut || "09:00",
+          endTime: exam.heure_fin || "11:00",
+          classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
+          supervisors: Array.isArray(exam.superviseurs) 
+            ? exam.superviseurs.map((supervisor) => {
                 // Handle both string and number IDs
+                const id = typeof supervisor === 'object' ? supervisor.id : supervisor;
                 const numId = typeof id === "string" ? parseInt(id, 10) : id;
                 return isNaN(numId) ? 0 : numId;
               })
-            : [],
-          students: exam.students,
+            : typeof exam.superviseurs === 'string'
+              ? exam.superviseurs.split(',').map(s => {
+                  const numId = parseInt(s.trim(), 10);
+                  return isNaN(numId) ? 0 : numId;
+                })
+              : [],
+          students: Array.isArray(exam.students) ? exam.students : [],
         }
       : {
           formation: "",
@@ -143,6 +152,82 @@ const ExamForm = ({
           students: [],
         },
   });
+
+  // Reset form when exam changes
+  useEffect(() => {
+    if (exam) {
+      console.log("Resetting form with exam data:", exam);
+      form.reset({
+        formation: exam.formation?.toString() || "",
+        filiere: exam.filiere?.toString() || "",
+        semester: exam.semestre?.toString() || "",
+        module: exam.module?.toString() || "",
+        date: exam.date_examen ? new Date(exam.date_examen) : new Date(),
+        startTime: exam.heure_debut || "09:00",
+        endTime: exam.heure_fin || "11:00",
+        classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
+        supervisors: Array.isArray(exam.superviseurs) 
+          ? exam.superviseurs.map((supervisor) => {
+              const id = typeof supervisor === 'object' ? supervisor.id : supervisor;
+              const numId = typeof id === "string" ? parseInt(id, 10) : id;
+              return isNaN(numId) ? 0 : numId;
+            })
+          : typeof exam.superviseurs === 'string'
+            ? exam.superviseurs.split(',').map(s => {
+                const numId = parseInt(s.trim(), 10);
+                return isNaN(numId) ? 0 : numId;
+              })
+            : [],
+        students: Array.isArray(exam.students) ? exam.students : [],
+      });
+    }
+  }, [exam, form]);
+
+  // Initialize selected students when exam is provided
+  useEffect(() => {
+    if (exam?.students && Array.isArray(exam.students)) {
+      setSelectedStudentsLocal(exam.students);
+      if (setSelectedStudents) {
+        setSelectedStudents(exam.students);
+      }
+    }
+  }, [exam, setSelectedStudents]);
+
+  // Initialize imported students when exam is provided
+  useEffect(() => {
+    if (exam?.students && Array.isArray(exam.students)) {
+      const importedStudentsData = exam.students.map(studentId => {
+        const student = exam.students_data?.find(s => s.studentId === studentId);
+        return student || { studentId };
+      });
+      setImportedStudentsLocal(importedStudentsData);
+      if (setImportedStudents) {
+        setImportedStudents(importedStudentsData);
+      }
+    }
+  }, [exam, setImportedStudents]);
+
+  // Initialize selected classroom type based on exam data
+  useEffect(() => {
+    if (exam?.classroom_ids && Array.isArray(exam.classroom_ids) && amphitheaters.length > 0) {
+      const hasAmphitheaters = exam.classroom_ids.some(id => 
+        amphitheaters.some(amphi => amphi.id === id)
+      );
+      setSelectedClassroomType(hasAmphitheaters ? "amphi" : "classroom");
+    }
+  }, [exam, amphitheaters]);
+
+  // Initialize selected department based on exam data
+  useEffect(() => {
+    if (exam?.classroom_ids && Array.isArray(exam.classroom_ids) && availableClassrooms.length > 0) {
+      const firstClassroom = availableClassrooms.find(c => 
+        exam.classroom_ids.includes(c.id)
+      );
+      if (firstClassroom?.departement) {
+        setSelectedClassroomDepartment(firstClassroom.departement);
+      }
+    }
+  }, [exam, availableClassrooms]);
 
   // Load formations
   useEffect(() => {
@@ -223,20 +308,9 @@ const ExamForm = ({
               console.warn(
                 "No scheduled classrooms found for the selected date and time."
               );
-              toast({
-                title: "Avertissement",
-                description:
-                  "Aucune salle programmée trouvée pour cette date et heure.",
-                variant: "default",
-              });
             }
           } else {
             console.error("Error fetching scheduled classrooms:", data);
-            toast({
-              title: "Erreur",
-              description: "Impossible de charger les salles programmées",
-              variant: "destructive",
-            });
           }
         } catch (error) {
           console.error("Error loading classrooms:", error);

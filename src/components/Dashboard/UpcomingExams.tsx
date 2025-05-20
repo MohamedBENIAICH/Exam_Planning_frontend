@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+import ExamForm from "@/components/Exams/ExamForm";
 
 interface ApiExam {
   id: number;
@@ -45,6 +46,7 @@ interface ApiExam {
   module_name: string;
   date_examen: string;
   heure_debut: string;
+  heure_fin: string;
   duree: number;
   locaux: string;
   superviseurs: string;
@@ -74,16 +76,33 @@ interface Assignment {
   }[];
 }
 
+interface ExamToEdit {
+  id: number;
+  cycle: string;
+  filiere: string;
+  module: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  locaux: string;
+  superviseurs: string;
+  data: {
+    locaux: number[];
+  };
+}
+
 const ExamSection = ({
   title,
   exams,
   loading,
   error,
+  onExamUpdate,
 }: {
   title: string;
   exams: ApiExam[];
   loading: boolean;
   error: string | null;
+  onExamUpdate: (updatedExam: ApiExam) => void;
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const examsPerPage = 5;
@@ -95,6 +114,8 @@ const ExamSection = ({
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
   const { toast } = useToast();
+  const [editingExam, setEditingExam] = useState<ExamToEdit | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Check if this is the past exams section
   const isPastExams = title === "Examens passés";
@@ -153,12 +174,99 @@ const ExamSection = ({
     }
   };
 
+  const handleAddEditExam = async (exam: ExamToEdit) => {
+    try {
+      // Format the date to YYYY-MM-DD
+      const examDate = new Date(exam.date);
+      const formattedDate = format(examDate, "yyyy-MM-dd");
+
+      // Prepare the exam data for the API
+      const examData = {
+        cycle: exam.cycle,
+        filiere: exam.filiere,
+        module: exam.module,
+        date_examen: formattedDate,
+        heure_debut: exam.startTime,
+        heure_fin: exam.endTime,
+        locaux: exam.locaux,
+        superviseurs: exam.superviseurs,
+        classroom_ids: exam.data.locaux,
+        superviseur_ids: exam.superviseurs
+          .split(",")
+          .map((id) => parseInt(id.trim())),
+      };
+
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/exams/${exam.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(examData),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update exam");
+      }
+
+      // Update the exams state with the response from the API
+      const updatedExam = await response.json();
+      onExamUpdate({
+        ...updatedExam.data,
+        id: exam.id,
+        cycle: exam.cycle,
+        filiere_name: exam.filiere,
+        module_name: exam.module,
+        date_examen: formattedDate,
+        heure_debut: exam.startTime,
+        heure_fin: exam.endTime,
+        locaux: exam.locaux,
+        superviseurs: exam.superviseurs,
+      });
+
+      toast({
+        title: "Examen mis à jour",
+        description: "L'examen a été modifié avec succès",
+        variant: "default",
+        className: "bg-green-50 border-green-200 text-green-800",
+      });
+
+      setIsDialogOpen(false);
+      setEditingExam(null);
+    } catch (error) {
+      console.error("Error updating exam:", error);
+      toast({
+        title: "Erreur",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Échec de la mise à jour de l'examen",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleEditExam = (exam: ApiExam) => {
-    // TODO: Implement edit functionality
-    toast({
-      title: "Modification",
-      description: "La fonctionnalité de modification sera bientôt disponible",
-    });
+    // Convert the API exam format to the format expected by the edit dialog
+    const examToEdit = {
+      id: exam.id,
+      cycle: exam.cycle,
+      filiere: exam.filiere_name,
+      module: exam.module_name,
+      date: exam.date_examen,
+      startTime: exam.heure_debut,
+      endTime: exam.heure_fin,
+      locaux: exam.locaux,
+      superviseurs: exam.superviseurs,
+      data: {
+        locaux: exam.locaux.split(",").map((id) => parseInt(id.trim())),
+      },
+    };
+    setEditingExam(examToEdit);
+    setIsDialogOpen(true);
   };
 
   const handleDeleteClick = (exam: ApiExam) => {
@@ -609,6 +717,31 @@ const ExamSection = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setEditingExam(null);
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editingExam ? "Modifier l'examen" : "Planifier un nouvel examen"}
+            </DialogTitle>
+          </DialogHeader>
+          <ExamForm
+            exam={editingExam || undefined}
+            onSubmit={handleAddEditExam}
+            onCancel={() => {
+              setIsDialogOpen(false);
+              setEditingExam(null);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
@@ -617,6 +750,12 @@ const UpcomingExams = () => {
   const [exams, setExams] = useState<ApiExam[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const handleExamUpdate = (updatedExam: ApiExam) => {
+    setExams((prevExams) =>
+      prevExams.map((exam) => (exam.id === updatedExam.id ? updatedExam : exam))
+    );
+  };
 
   useEffect(() => {
     const fetchExams = async () => {
@@ -657,12 +796,14 @@ const UpcomingExams = () => {
           exams={pastExams}
           loading={loading}
           error={error}
+          onExamUpdate={handleExamUpdate}
         />
         <ExamSection
           title="Examens à venir"
           exams={upcomingExams}
           loading={loading}
           error={error}
+          onExamUpdate={handleExamUpdate}
         />
       </div>
     </div>

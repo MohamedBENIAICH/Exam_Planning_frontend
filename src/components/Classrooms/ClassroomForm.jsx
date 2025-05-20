@@ -97,7 +97,7 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
         const response = await createClassroom(values);
         console.log("Create classroom response:", response);
 
-        if (response.status === "success") {
+        if (response && response.status === "success") {
           toast({
             title: "Salle créée",
             description: "La salle a été créée avec succès",
@@ -108,25 +108,20 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
             building: values.building,
             capacity: values.capacity,
             equipment: values.equipment,
-            // isAvailable: values.isAvailable,
           });
-        } else {
-          // Handle validation errors from the backend
-          if (response.errors) {
-            const errorMessages = Object.entries(response.errors)
-              .map(
-                ([field, messages]) =>
-                  `${field}: ${
-                    Array.isArray(messages) ? messages.join(", ") : messages
-                  }`
-              )
-              .join("\n");
-            throw new Error(errorMessages);
-          }
-          throw new Error(
-            response.message || "Erreur lors de la création de la salle"
-          );
+          return;
         }
+
+        // Only handle errors if we haven't returned from success case
+        if (response && response.errors) {
+          const errorMessages = Object.entries(response.errors)
+            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`)
+            .join("\n");
+          throw new Error(errorMessages);
+        }
+
+        // If we get here, something went wrong but we don't have specific error details
+        throw new Error("Erreur lors de la création de la salle");
       }
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -135,34 +130,10 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
         stack: error.stack,
         response: error.response,
       });
-
-      // Try to parse the error message if it's a JSON string
-      let errorMessage = error.message;
-      try {
-        const parsedError = JSON.parse(error.message);
-        if (typeof parsedError === "object") {
-          errorMessage = Object.entries(parsedError)
-            .map(
-              ([field, messages]) =>
-                `${field}: ${
-                  Array.isArray(messages) ? messages.join(", ") : messages
-                }`
-            )
-            .join("\n");
-        }
-      } catch (e) {
-        // If parsing fails, use the original error message
-        console.log("Error message is not JSON:", e);
-      }
-
-      // Show error in toast
       toast({
         title: "Erreur",
-        description:
-          errorMessage ||
-          "Une erreur est survenue lors de la soumission du formulaire",
+        description: error.message || "Erreur lors de la création de la salle",
         variant: "destructive",
-        duration: 5000, // Show for 5 seconds
       });
     }
   };

@@ -25,7 +25,7 @@ export const fr = {
   navigation: {
     dashboard: "Tableau de bord",
     students: "Étudiants",
-    classrooms: "Salles de classe",
+    classrooms: "Ajouter une salle",
     exams: "Planification des examens",
     settings: "Paramètres",
     profile: "Profil",
