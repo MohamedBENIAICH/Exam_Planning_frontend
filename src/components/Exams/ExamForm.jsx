@@ -106,7 +106,8 @@ const ExamForm = ({
   const { toast } = useToast();
   const [assignments, setAssignments] = useState(null);
   const [selectedClassroomType, setSelectedClassroomType] = useState(null);
-  const [selectedClassroomDepartment, setSelectedClassroomDepartment] = useState("");
+  const [selectedClassroomDepartment, setSelectedClassroomDepartment] =
+    useState("");
   const [amphitheaters, setAmphitheaters] = useState([]);
   const [loadingAmphitheaters, setLoadingAmphitheaters] = useState(false);
   const [loadingClassrooms, setLoadingClassrooms] = useState(false);
@@ -123,20 +124,23 @@ const ExamForm = ({
           date: exam.date_examen ? new Date(exam.date_examen) : new Date(),
           startTime: exam.heure_debut || "09:00",
           endTime: exam.heure_fin || "11:00",
-          classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
-          supervisors: Array.isArray(exam.superviseurs) 
+          classrooms: Array.isArray(exam.classroom_ids)
+            ? exam.classroom_ids
+            : [],
+          supervisors: Array.isArray(exam.superviseurs)
             ? exam.superviseurs.map((supervisor) => {
                 // Handle both string and number IDs
-                const id = typeof supervisor === 'object' ? supervisor.id : supervisor;
+                const id =
+                  typeof supervisor === "object" ? supervisor.id : supervisor;
                 const numId = typeof id === "string" ? parseInt(id, 10) : id;
                 return isNaN(numId) ? 0 : numId;
               })
-            : typeof exam.superviseurs === 'string'
-              ? exam.superviseurs.split(',').map(s => {
-                  const numId = parseInt(s.trim(), 10);
-                  return isNaN(numId) ? 0 : numId;
-                })
-              : [],
+            : typeof exam.superviseurs === "string"
+            ? exam.superviseurs.split(",").map((s) => {
+                const numId = parseInt(s.trim(), 10);
+                return isNaN(numId) ? 0 : numId;
+              })
+            : [],
           students: Array.isArray(exam.students) ? exam.students : [],
         }
       : {
@@ -166,18 +170,19 @@ const ExamForm = ({
         startTime: exam.heure_debut || "09:00",
         endTime: exam.heure_fin || "11:00",
         classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
-        supervisors: Array.isArray(exam.superviseurs) 
+        supervisors: Array.isArray(exam.superviseurs)
           ? exam.superviseurs.map((supervisor) => {
-              const id = typeof supervisor === 'object' ? supervisor.id : supervisor;
+              const id =
+                typeof supervisor === "object" ? supervisor.id : supervisor;
               const numId = typeof id === "string" ? parseInt(id, 10) : id;
               return isNaN(numId) ? 0 : numId;
             })
-          : typeof exam.superviseurs === 'string'
-            ? exam.superviseurs.split(',').map(s => {
-                const numId = parseInt(s.trim(), 10);
-                return isNaN(numId) ? 0 : numId;
-              })
-            : [],
+          : typeof exam.superviseurs === "string"
+          ? exam.superviseurs.split(",").map((s) => {
+              const numId = parseInt(s.trim(), 10);
+              return isNaN(numId) ? 0 : numId;
+            })
+          : [],
         students: Array.isArray(exam.students) ? exam.students : [],
       });
     }
@@ -196,8 +201,10 @@ const ExamForm = ({
   // Initialize imported students when exam is provided
   useEffect(() => {
     if (exam?.students && Array.isArray(exam.students)) {
-      const importedStudentsData = exam.students.map(studentId => {
-        const student = exam.students_data?.find(s => s.studentId === studentId);
+      const importedStudentsData = exam.students.map((studentId) => {
+        const student = exam.students_data?.find(
+          (s) => s.studentId === studentId
+        );
         return student || { studentId };
       });
       setImportedStudentsLocal(importedStudentsData);
@@ -209,9 +216,13 @@ const ExamForm = ({
 
   // Initialize selected classroom type based on exam data
   useEffect(() => {
-    if (exam?.classroom_ids && Array.isArray(exam.classroom_ids) && amphitheaters.length > 0) {
-      const hasAmphitheaters = exam.classroom_ids.some(id => 
-        amphitheaters.some(amphi => amphi.id === id)
+    if (
+      exam?.classroom_ids &&
+      Array.isArray(exam.classroom_ids) &&
+      amphitheaters.length > 0
+    ) {
+      const hasAmphitheaters = exam.classroom_ids.some((id) =>
+        amphitheaters.some((amphi) => amphi.id === id)
       );
       setSelectedClassroomType(hasAmphitheaters ? "amphi" : "classroom");
     }
@@ -219,8 +230,12 @@ const ExamForm = ({
 
   // Initialize selected department based on exam data
   useEffect(() => {
-    if (exam?.classroom_ids && Array.isArray(exam.classroom_ids) && availableClassrooms.length > 0) {
-      const firstClassroom = availableClassrooms.find(c => 
+    if (
+      exam?.classroom_ids &&
+      Array.isArray(exam.classroom_ids) &&
+      availableClassrooms.length > 0
+    ) {
+      const firstClassroom = availableClassrooms.find((c) =>
         exam.classroom_ids.includes(c.id)
       );
       if (firstClassroom?.departement) {
