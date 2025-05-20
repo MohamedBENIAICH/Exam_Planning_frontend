@@ -95,7 +95,7 @@ const ExamScheduling = () => {
     id: number;
     formation: string;
     filiere: string;
-    module: string;
+    module_id: string;
     semestre: string;
     date_examen: string;
     heure_debut: string;
@@ -182,6 +182,8 @@ const ExamScheduling = () => {
           const formattedExams = data.data.slice(0, 5).map((apiExam) => {
             console.log("Processing exam:", {
               id: apiExam.id,
+              module_id: apiExam.module_id,
+              moduleIdType: typeof apiExam.module_id,
               locaux: apiExam.locaux,
               type: typeof apiExam.locaux,
             });
@@ -195,11 +197,19 @@ const ExamScheduling = () => {
               split: classrooms,
             });
 
+            // Use module_id from the API response
+            const examModuleId = apiExam.module_id;
+            console.log("Module ID for exam:", {
+              id: apiExam.id,
+              moduleId: examModuleId,
+              moduleIdType: typeof examModuleId,
+            });
+
             return {
               id: apiExam.id.toString(),
-              courseCode: apiExam.module || "",
-              courseName: apiExam.module || "",
-              module: apiExam.module || "",
+              courseCode: examModuleId || "",
+              courseName: examModuleId || "",
+              module: examModuleId?.toString() || "",
               cycle: apiExam.formation || "",
               filiere: apiExam.filiere || "",
               date: apiExam.date_examen || "",
@@ -868,31 +878,68 @@ const ExamScheduling = () => {
         return "";
       }
       console.log(`Fetching module name for ID: ${moduleId}`);
-      const response = await fetch(
-        `http://localhost:8000/api/modules/${moduleId}/name`
-      );
-      const data = await response.json();
-      console.log(`Module name response for ID ${moduleId}:`, data);
 
-      if (data.status === "success" && data.data) {
+      // Ensure moduleId is a string and clean it
+      const cleanModuleId = moduleId.toString().trim();
+
+      // First check if we already have the name cached
+      if (moduleNames[cleanModuleId]) {
         console.log(
-          `Setting module name for ID ${moduleId}:`,
-          data.data.module_name
+          `Using cached module name for ID ${cleanModuleId}:`,
+          moduleNames[cleanModuleId]
         );
-        setModuleNames((prev) => {
-          const newNames = {
-            ...prev,
-            [moduleId]: data.data.module_name,
-          };
-          console.log("Updated module names:", newNames);
-          return newNames;
-        });
-        return data.data.module_name;
+        return moduleNames[cleanModuleId];
       }
-      console.log(`No module name found for ID ${moduleId}`);
-      return moduleId;
+
+      try {
+        console.log(`Making API request for module ID: ${cleanModuleId}`);
+        const response = await fetch(
+          `http://localhost:8000/api/modules/${cleanModuleId}/name`
+        );
+        const data = await response.json();
+        console.log(`Raw API response for module ID ${cleanModuleId}:`, data);
+
+        if (data.status === "success" && data.data) {
+          const moduleName = data.data.module_name;
+          console.log(
+            `Setting module name for ID ${cleanModuleId}:`,
+            moduleName
+          );
+          setModuleNames((prev) => {
+            const newNames = {
+              ...prev,
+              [cleanModuleId]: moduleName,
+            };
+            console.log("Updated module names:", newNames);
+            return newNames;
+          });
+          return moduleName;
+        } else {
+          console.log(
+            `API response did not contain expected data for module ID ${cleanModuleId}:`,
+            data
+          );
+          // If the API call fails, use the module ID as the name
+          setModuleNames((prev) => ({
+            ...prev,
+            [cleanModuleId]: cleanModuleId,
+          }));
+          return cleanModuleId;
+        }
+      } catch (error) {
+        console.error(
+          `Error fetching module name for ID ${cleanModuleId}:`,
+          error
+        );
+        // If there's an error, use the module ID as the name
+        setModuleNames((prev) => ({
+          ...prev,
+          [cleanModuleId]: cleanModuleId,
+        }));
+        return cleanModuleId;
+      }
     } catch (error) {
-      console.error(`Error fetching module name for ID ${moduleId}:`, error);
+      console.error(`Error in fetchModuleName for ID ${moduleId}:`, error);
       return moduleId;
     }
   };
@@ -906,10 +953,10 @@ const ExamScheduling = () => {
           "Complete exam structure:",
           exams.map((exam) => ({
             id: exam.id,
-            fullExam: exam,
-            data: exam.data,
-            module: exam.module, // Check if module is at root level
-            allKeys: Object.keys(exam), // Log all available keys
+            module: exam.module,
+            moduleType: typeof exam.module,
+            courseName: exam.courseName,
+            allKeys: Object.keys(exam),
           }))
         );
 
@@ -919,12 +966,24 @@ const ExamScheduling = () => {
             // Log all possible module ID locations
             console.log(`Exam ${exam.id} possible module locations:`, {
               rootModule: exam.module,
-              dataModule: exam.data?.module,
+              moduleType: typeof exam.module,
+              courseName: exam.courseName,
               allKeys: Object.keys(exam),
             });
 
-            // Try different possible locations for module ID
-            return exam.module || exam.data?.module;
+            // Use the module field which now contains the module_id
+            const examModuleId = exam.module;
+            if (!examModuleId) {
+              console.log(`No module ID found for exam ${exam.id}`);
+              return null;
+            }
+            console.log(
+              `Selected module ID for exam ${exam.id}:`,
+              examModuleId,
+              "type:",
+              typeof examModuleId
+            );
+            return examModuleId;
           })
           .filter(Boolean);
 
@@ -938,8 +997,16 @@ const ExamScheduling = () => {
           return;
         }
 
+        // Fetch module names in parallel
         await Promise.all(
-          uniqueModuleIds.map((id) => id && fetchModuleName(id))
+          uniqueModuleIds.map((id) => {
+            if (!id) return Promise.resolve();
+            console.log(
+              `Starting fetch for module ID: ${id}, type:`,
+              typeof id
+            );
+            return fetchModuleName(id);
+          })
         );
       }
     };
@@ -953,11 +1020,34 @@ const ExamScheduling = () => {
       console.log("Empty module ID provided to getModuleDisplayName");
       return "Unknown Module";
     }
-    console.log(`Getting display name for module ID: ${moduleId}`);
+    console.log(
+      `Getting display name for module ID: ${moduleId}, type:`,
+      typeof moduleId
+    );
     console.log("Current module names:", moduleNames);
-    const displayName = moduleNames[moduleId] || moduleId;
-    console.log(`Display name will be: ${displayName}`);
-    return displayName;
+
+    // First try to get the name from our cache
+    const cachedName = moduleNames[moduleId];
+    if (cachedName) {
+      console.log(`Found cached name for module ID ${moduleId}:`, cachedName);
+      return cachedName;
+    }
+
+    // If no cached name, try to get it from the exam data
+    const exam = exams.find((e) => e.module === moduleId);
+    if (exam?.courseName) {
+      console.log(
+        `Using course name as fallback for module ID ${moduleId}:`,
+        exam.courseName
+      );
+      return exam.courseName;
+    }
+
+    // If all else fails, return the module ID
+    console.log(
+      `No name found for module ID ${moduleId}, using ID as fallback`
+    );
+    return moduleId;
   };
 
   return (

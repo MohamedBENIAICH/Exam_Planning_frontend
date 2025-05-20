@@ -8,7 +8,7 @@ import { fr } from "@/translations/fr";
 const navItems = [
   { path: "/", label: fr.navigation.dashboard, icon: Home },
   //{ path: "/students", label: fr.navigation.students, icon: Users },
-  { path: "/classrooms", label: fr.navigation.classrooms, icon: Building },
+  // { path: "/classrooms", label: fr.navigation.classrooms, icon: Building },
   { path: "/exams", label: fr.navigation.exams, icon: Calendar },
 ];
 
