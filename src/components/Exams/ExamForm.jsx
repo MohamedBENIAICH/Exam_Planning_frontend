@@ -64,7 +64,8 @@ const formSchema = z.object({
   classrooms: z
     .array(z.union([z.string(), z.number()]))
     .min(1, "Au moins une salle est requise"),
-  supervisors: z.array(z.number()).min(1, "Au moins un superviseur est requis"),
+  supervisors: z.array(z.number()).optional(),
+  professors: z.array(z.number()).min(1, "Au moins un professeur est requis"),
   students: z.array(z.string()),
 });
 
@@ -124,19 +125,27 @@ const ExamForm = ({
           date: exam.date_examen ? new Date(exam.date_examen) : new Date(),
           startTime: exam.heure_debut || "09:00",
           endTime: exam.heure_fin || "11:00",
-          classrooms: Array.isArray(exam.classroom_ids)
-            ? exam.classroom_ids
-            : [],
+          classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
           supervisors: Array.isArray(exam.superviseurs)
             ? exam.superviseurs.map((supervisor) => {
-                // Handle both string and number IDs
-                const id =
-                  typeof supervisor === "object" ? supervisor.id : supervisor;
+                const id = typeof supervisor === "object" ? supervisor.id : supervisor;
                 const numId = typeof id === "string" ? parseInt(id, 10) : id;
                 return isNaN(numId) ? 0 : numId;
               })
             : typeof exam.superviseurs === "string"
             ? exam.superviseurs.split(",").map((s) => {
+                const numId = parseInt(s.trim(), 10);
+                return isNaN(numId) ? 0 : numId;
+              })
+            : [],
+          professors: Array.isArray(exam.professeurs)
+            ? exam.professeurs.map((professor) => {
+                const id = typeof professor === "object" ? professor.id : professor;
+                const numId = typeof id === "string" ? parseInt(id, 10) : id;
+                return isNaN(numId) ? 0 : numId;
+              })
+            : typeof exam.professeurs === "string"
+            ? exam.professeurs.split(",").map((s) => {
                 const numId = parseInt(s.trim(), 10);
                 return isNaN(numId) ? 0 : numId;
               })
@@ -153,6 +162,7 @@ const ExamForm = ({
           endTime: "11:00",
           classrooms: [],
           supervisors: [],
+          professors: [],
           students: [],
         },
   });
@@ -172,13 +182,24 @@ const ExamForm = ({
         classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
         supervisors: Array.isArray(exam.superviseurs)
           ? exam.superviseurs.map((supervisor) => {
-              const id =
-                typeof supervisor === "object" ? supervisor.id : supervisor;
+              const id = typeof supervisor === "object" ? supervisor.id : supervisor;
               const numId = typeof id === "string" ? parseInt(id, 10) : id;
               return isNaN(numId) ? 0 : numId;
             })
           : typeof exam.superviseurs === "string"
           ? exam.superviseurs.split(",").map((s) => {
+              const numId = parseInt(s.trim(), 10);
+              return isNaN(numId) ? 0 : numId;
+            })
+          : [],
+        professors: Array.isArray(exam.professeurs)
+          ? exam.professeurs.map((professor) => {
+              const id = typeof professor === "object" ? professor.id : professor;
+              const numId = typeof id === "string" ? parseInt(id, 10) : id;
+              return isNaN(numId) ? 0 : numId;
+            })
+          : typeof exam.professeurs === "string"
+          ? exam.professeurs.split(",").map((s) => {
               const numId = parseInt(s.trim(), 10);
               return isNaN(numId) ? 0 : numId;
             })
@@ -638,15 +659,27 @@ const ExamForm = ({
 
       // Map selected supervisor IDs to their complete information
       const supervisorsToSubmit = values.supervisors
+        ? values.supervisors
         .map((supervisorId) =>
           supervisorsByDepartment.find(
             (supervisor) => supervisor.id === supervisorId
           )
         )
-        .filter((supervisor) => supervisor !== undefined);
+            .filter((supervisor) => supervisor !== undefined)
+        : [];
+
+      // Map selected professor IDs to their complete information
+      const professorsToSubmit = values.professors
+        .map((professorId) =>
+          professorsByDepartment.find(
+            (professor) => professor.id === professorId
+          )
+        )
+        .filter((professor) => professor !== undefined);
 
       console.log("Mapped students:", studentsToSubmit);
       console.log("Mapped supervisors:", supervisorsToSubmit);
+      console.log("Mapped professors:", professorsToSubmit);
 
       // Format date as YYYY-MM-DD
       const formattedDate = format(values.date, "yyyy-MM-dd");
@@ -661,7 +694,7 @@ const ExamForm = ({
         !values.startTime ||
         !values.endTime ||
         !values.classrooms?.length ||
-        !supervisorsToSubmit?.length ||
+        !professorsToSubmit?.length ||
         !studentsToSubmit?.length
       ) {
         console.error("Missing required fields:", {
@@ -673,7 +706,7 @@ const ExamForm = ({
           startTime: values.startTime,
           endTime: values.endTime,
           classrooms: values.classrooms,
-          supervisors: supervisorsToSubmit,
+          professors: professorsToSubmit,
           students: studentsToSubmit,
         });
         toast({
@@ -700,9 +733,14 @@ const ExamForm = ({
         heure_debut: values.startTime,
         heure_fin: values.endTime,
         locaux: classroomNames,
-        superviseurs: supervisorsToSubmit
-          .map((s) => `${s.prenom} ${s.nom}`)
+        professeurs: professorsToSubmit
+          .map((p) => `${p.prenom} ${p.nom}`)
           .join(", "),
+        superviseurs: supervisorsToSubmit.length > 0
+          ? supervisorsToSubmit
+              .map((s) => `${s.prenom} ${s.nom}`)
+              .join(", ")
+          : undefined,
         classroom_ids: values.classrooms.map((id) => parseInt(id, 10)),
         students: studentsToSubmit.map((student) => ({
           studentId: student.studentId || student.id,
@@ -789,15 +827,23 @@ const ExamForm = ({
         });
       }
     } catch (error) {
+      if (
+        error.message &&
+        error.message.includes("Unexpected end of JSON input")
+      ) {
+        setLoading(false);
+        return; // Do nothing: no log, no toast
+      }
       console.error("Error saving exam:", error);
       toast({
         title: "Erreur",
         description: `Impossible d'enregistrer l'examen: ${error.message}`,
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
+    // Ensure loading is stopped after all logic
+    setLoading(false);
   };
 
   const handleSendInvitations = async () => {
@@ -1416,7 +1462,15 @@ const ExamForm = ({
                                 Chargement des salles disponibles...
                               </div>
                             ) : availableClassrooms.length > 0 ? (
-                              availableClassrooms.map((classroom) => (
+                              availableClassrooms
+                                .filter(classroom => {
+                                  // Filter out amphitheaters when showing classrooms
+                                  if (selectedClassroomType === "classroom") {
+                                    return !amphitheaters.some(amphi => amphi.id === classroom.id);
+                                  }
+                                  return true;
+                                })
+                                .map((classroom) => (
                                 <div
                                   key={classroom.id}
                                   className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
@@ -1424,20 +1478,13 @@ const ExamForm = ({
                                   <div className="flex items-start gap-2">
                                     <Checkbox
                                       id={`classroom-${classroom.id}`}
-                                      checked={field.value.includes(
-                                        classroom.id
-                                      )}
+                                        checked={field.value.includes(classroom.id)}
                                       onCheckedChange={(checked) => {
                                         if (checked) {
-                                          field.onChange([
-                                            ...field.value,
-                                            classroom.id,
-                                          ]);
+                                            field.onChange([...field.value, classroom.id]);
                                         } else {
                                           field.onChange(
-                                            field.value.filter(
-                                              (id) => id !== classroom.id
-                                            )
+                                              field.value.filter((id) => id !== classroom.id)
                                           );
                                         }
                                       }}
@@ -1446,8 +1493,7 @@ const ExamForm = ({
                                       htmlFor={`classroom-${classroom.id}`}
                                       className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                     >
-                                      {classroom.nom_du_local} - Capacité:{" "}
-                                      {classroom.capacite}
+                                        {classroom.nom_du_local} - Capacité: {classroom.capacite}
                                     </label>
                                   </div>
                                   <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
@@ -1457,8 +1503,7 @@ const ExamForm = ({
                               ))
                             ) : (
                               <div className="text-center text-slate-500 py-2">
-                                Aucune salle disponible pour ce département à
-                                cette date et heure
+                                Aucune salle disponible pour ce département à cette date et heure
                               </div>
                             )}
                           </div>
@@ -1527,114 +1572,36 @@ const ExamForm = ({
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 shadow-sm">
               <FormField
                 control={form.control}
-                name="supervisors"
+                name="professors"
                 render={({ field }) => (
                   <FormItem className="space-y-4">
                     <FormLabel className="flex items-center gap-1 text-lg font-medium">
                       <Users className="h-5 w-5" />
-                      Les superviseurs
+                      Les professeurs
                     </FormLabel>
 
-                    {/* Superviseurs List - Only show if not only classrooms selected */}
-                    {(!selectedClassroomType ||
-                      selectedClassroomType === "amphi") && (
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-medium text-slate-700">
-                            Superviseur
-                          </h4>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="text-sm text-blue-600 hover:text-blue-700"
-                            onClick={() =>
-                              setShowSuperviseursList(!showSuperviseursList)
-                            }
-                          >
-                            {showSuperviseursList
-                              ? "Masquer la liste des superviseurs"
-                              : "Afficher tous les superviseurs"}
-                          </Button>
-                        </div>
-                        <div className={showSuperviseursList ? "" : "hidden"}>
-                          {loadingSupervisors ? (
-                            <div className="text-center text-slate-500 py-2">
-                              Chargement des superviseurs...
-                            </div>
-                          ) : supervisorsByDepartment.length > 0 ? (
-                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                              {supervisorsByDepartment.map((supervisor) => (
-                                <div
-                                  key={supervisor.id}
-                                  className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value.includes(
-                                        supervisor.id
-                                      )}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          field.onChange([
-                                            ...field.value,
-                                            supervisor.id,
-                                          ]);
-                                        } else {
-                                          field.onChange(
-                                            field.value.filter(
-                                              (id) => id !== supervisor.id
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <label className="text-sm leading-none cursor-pointer flex-1">
-                                    {supervisor.prenom} {supervisor.nom} -{" "}
-                                    {supervisor.poste}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center text-slate-500 py-2">
-                              Aucun superviseur disponible
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Department Selection and Professeurs List - Always visible */}
-                    <div>
-                      <h4 className="text-sm font-medium text-slate-700 mb-2">
-                        Sélectionnez un département pour les professeurs
-                      </h4>
-                      <Select
-                        onValueChange={(value) => setSelectedDepartment(value)}
-                        value={selectedDepartment}
-                      >
-                        <SelectTrigger className="w-full bg-white">
-                          <SelectValue placeholder="Sélectionnez un département" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {loadingDepartments ? (
-                            <div className="p-2 text-center text-slate-500">
-                              Chargement des départements...
-                            </div>
-                          ) : departments.length > 0 ? (
-                            departments.map((department) => (
-                              <SelectItem key={department} value={department}>
-                                {department}
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-700 mb-2">
+                          Département
+                          </h4>
+                        <Select
+                          value={selectedDepartment}
+                          onValueChange={setSelectedDepartment}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner un département" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departments.map((dept) => (
+                              <SelectItem key={dept} value={dept}>
+                                {dept}
                               </SelectItem>
-                            ))
-                          ) : (
-                            <div className="p-2 text-center text-slate-500">
-                              Aucun département disponible
-                            </div>
-                          )}
-                        </SelectContent>
-                      </Select>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        </div>
 
                       {selectedDepartment && (
                         <div className="mt-4">
@@ -1674,29 +1641,208 @@ const ExamForm = ({
                                     />
                                   </FormControl>
                                   <label className="text-sm leading-none cursor-pointer flex-1">
-                                    {professor.prenom} {professor.nom}
+                                    {professor.prenom} {professor.nom} -{" "}
+                                    {professor.poste}
                                   </label>
                                 </div>
                               ))}
                             </div>
                           ) : (
                             <div className="text-center text-slate-500 py-2">
-                              Aucun professeur disponible pour ce département
+                              Aucun professeur disponible
                             </div>
                           )}
                         </div>
                       )}
-                    </div>
+                      </div>
+                  </FormItem>
+                )}
+              />
 
-                    {field.value.length === 0 && (
-                      <FormMessage>
-                        Veuillez sélectionner un superviseur et un professeur
-                      </FormMessage>
+              <FormField
+                control={form.control}
+                name="supervisors"
+                render={({ field }) => (
+                  <FormItem className="space-y-4 mt-6">
+                    <FormLabel className="flex items-center gap-1 text-lg font-medium">
+                      <Users className="h-5 w-5" />
+                      Les superviseurs (optionnel)
+                    </FormLabel>
+
+                    {/* Superviseurs List - Only show if not only classrooms selected */}
+                    {(!selectedClassroomType ||
+                      selectedClassroomType === "amphi") && (
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium text-slate-700">
+                            Superviseur
+                      </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="text-sm text-blue-600 hover:text-blue-700"
+                            onClick={() =>
+                              setShowSuperviseursList(!showSuperviseursList)
+                            }
+                          >
+                            {showSuperviseursList
+                              ? "Masquer la liste des superviseurs"
+                              : "Afficher tous les superviseurs"}
+                          </Button>
+                            </div>
+                        
+                        {showSuperviseursList && (
+                          <>
+                            {loadingSupervisors ? (
+                            <div className="text-center text-slate-500 py-2">
+                                Chargement des superviseurs...
+                            </div>
+                            ) : supervisorsByDepartment.length > 0 ? (
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                                {supervisorsByDepartment.map((supervisor) => (
+                                <div
+                                    key={supervisor.id}
+                                  className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value.includes(
+                                          supervisor.id
+                                      )}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          field.onChange([
+                                            ...field.value,
+                                              supervisor.id,
+                                          ]);
+                                        } else {
+                                          field.onChange(
+                                            field.value.filter(
+                                                (id) => id !== supervisor.id
+                                            )
+                                          );
+                                        }
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <label className="text-sm leading-none cursor-pointer flex-1">
+                                      {supervisor.prenom} {supervisor.nom} -{" "}
+                                      {supervisor.poste}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center text-slate-500 py-2">
+                                Aucun superviseur disponible
+                            </div>
+                          )}
+                          </>
+                      )}
+                    </div>
                     )}
                   </FormItem>
                 )}
               />
             </div>
+
+            {/* Selected Professors and Supervisors Section */}
+            {(form.getValues("professors")?.length > 0 || form.getValues("supervisors")?.length > 0) && (
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <h4 className="text-sm font-medium text-slate-700 mb-3">
+                  Personnel sélectionné
+                </h4>
+                <div className="space-y-2">
+                  {/* Selected Professors */}
+                  {form.getValues("professors")?.length > 0 && (
+                    <div className="mb-4">
+                      <h5 className="text-sm font-medium text-slate-600 mb-2">
+                        Professeurs ({form.getValues("professors").length})
+                      </h5>
+                      {form.getValues("professors").map((professorId) => {
+                        const professor = professorsByDepartment.find(
+                          (p) => p.id === professorId
+                        );
+                        if (!professor) return null;
+
+                        return (
+                          <div
+                            key={professorId}
+                            className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4 text-slate-500" />
+                              <span className="text-sm">
+                                {professor.prenom} {professor.nom} - {professor.poste}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                const currentProfessors = form.getValues("professors");
+                                form.setValue(
+                                  "professors",
+                                  currentProfessors.filter((id) => id !== professorId)
+                                );
+                              }}
+                            >
+                              Retirer
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Selected Supervisors */}
+                  {form.getValues("supervisors")?.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-medium text-slate-600 mb-2">
+                        Superviseurs ({form.getValues("supervisors").length})
+                      </h5>
+                      {form.getValues("supervisors").map((supervisorId) => {
+                        const supervisor = supervisorsByDepartment.find(
+                          (s) => s.id === supervisorId
+                        );
+                        if (!supervisor) return null;
+
+                        return (
+                          <div
+                            key={supervisorId}
+                            className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4 text-slate-500" />
+                              <span className="text-sm">
+                                {supervisor.prenom} {supervisor.nom} - {supervisor.poste}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                const currentSupervisors = form.getValues("supervisors");
+                                form.setValue(
+                                  "supervisors",
+                                  currentSupervisors.filter((id) => id !== supervisorId)
+                                );
+                              }}
+                            >
+                              Retirer
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Form Footer - Fixed at bottom */}

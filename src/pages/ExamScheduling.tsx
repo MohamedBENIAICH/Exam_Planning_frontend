@@ -1096,14 +1096,14 @@ const ExamScheduling = () => {
           <h1 className="text-2xl font-bold mb-6">Les 5 dernières examens</h1>
           <Tabs defaultValue="grid">
             <div className="flex justify-between items-center mb-4">
-              <TabsList>
+              {/* <TabsList>
                 <TabsTrigger value="grid">Grid View</TabsTrigger>
                 <TabsTrigger value="calendar">Calendar View</TabsTrigger>
-              </TabsList>
-              <Button variant="outline" size="sm">
+              </TabsList> */}
+              {/* <Button variant="outline" size="sm">
                 <Filter className="h-4 w-4 mr-2" />
                 Filter
-              </Button>
+              </Button> */}
             </div>
 
             <TabsContent value="grid" className="space-y-4">
@@ -1194,14 +1194,14 @@ const ExamScheduling = () => {
                               size="sm"
                               onClick={() => handleEditExam(exam)}
                             >
-                              Edit
+                              Modifier
                             </Button>
                             <Button
                               variant="destructive"
                               size="sm"
                               onClick={() => handleDeleteClick(exam)}
                             >
-                              Delete
+                              Supprimer
                             </Button>
                             <Button
                               variant="outline"

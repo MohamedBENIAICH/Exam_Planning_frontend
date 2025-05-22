@@ -67,4 +67,11 @@ export const fr = {
     submit: "Envoyer",
     reset: "Réinitialiser",
   },
+
+  Actions: {
+    newExam: "Nouvel examen",
+    editExam: "Modifier l'examen",
+    deleteExam: "Supprimer l'examen",
+    viewExam: "Voir l'examen", 
+  },
 }; 

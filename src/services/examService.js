@@ -107,8 +107,6 @@ export const getExamById = async (id) => {
 export const createExam = async (examData) => {
   try {
     // The data should already be in the correct format from the form
-    console.log("Sending data to API:", examData);
-
     const response = await fetch(`${API_URL}/exams`, {
       method: "POST",
       headers: {
@@ -118,16 +116,19 @@ export const createExam = async (examData) => {
     });
 
     if (!response.ok) {
+      // Only show/log error if the response is not ok
       const errorData = await response.json().catch(() => ({}));
-      console.error("API error response:", errorData);
       throw new Error(errorData.message || `Error: ${response.status}`);
     }
 
-    const result = await response.json();
-    console.log("API response:", result);
-    return result;
+    // Try to parse JSON, but if empty or invalid, just return a success object and do not log/throw
+    try {
+      return await response.json();
+    } catch {
+      return { success: true };
+    }
   } catch (error) {
-    console.error("Failed to create exam:", error);
+    // Only log/throw if it's a real error (not empty JSON)
     throw error;
   }
 };

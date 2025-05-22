@@ -12,15 +12,21 @@ const Header: React.FC<HeaderProps> = ({ title, subtitle, actions }) => {
   return (
     <header className="py-6 px-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
       <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {subtitle && <p className="text-muted-foreground">{subtitle}</p>}
+        {/* <h1 className="text-2xl font-bold">{title}</h1> */}
+        <h1 className="text-2xl font-bold">Tableau de bord</h1>
+        {/* {subtitle && <p className="text-muted-foreground">{subtitle}</p>} */}
+        {subtitle && (
+          <p className="text-muted-foreground">
+            Bienvenue dans le Planificateur d'examens
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
         {actions}
-        <Button variant="outline" size="icon">
+        {/* <Button variant="outline" size="icon">
           <Bell className="h-5 w-5" />
-        </Button>
+        </Button> */}
       </div>
     </header>
   );
