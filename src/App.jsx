@@ -12,6 +12,8 @@ import ExamScheduling from "./pages/ExamScheduling";
 import NotFound from "./pages/NotFound";
 import { StudentsProvider } from "./components/context/StudentsProvider"; // Import StudentsProvider
 import ProfesseursForm from "./components/Professeurs/ProfesseursForm";
+import Superviseurs from "./pages/Superviseurs";
+import SuperviseursForm from "./components/Superviseurs/SuperviseursForm";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/exams" element={<ExamScheduling />} />
             <Route path="/professeurs" element={<Professeurs />} />
             <Route path="/professeurs/form" element={<ProfesseursForm />} />
+            <Route path="/superviseurs" element={<Superviseurs />} />
+            <Route path="/superviseurs/form" element={<SuperviseursForm />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
