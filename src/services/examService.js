@@ -141,36 +141,33 @@ export const createExam = async (examData) => {
  */
 export const updateExam = async (id, examData) => {
   try {
-    // Format the data according to the backend API requirements
     const formattedData = {
-      cycle: examData.cycle,
+      formation: examData.formation,
       filiere: examData.filiere,
       module: examData.module,
+      semestre: examData.semestre,
       date_examen: examData.date_examen,
       heure_debut: examData.heure_debut,
       heure_fin: examData.heure_fin,
       locaux: examData.locaux,
       superviseurs: examData.superviseurs,
-      // Ensure classroom_ids is an array of integers
+      professeurs: examData.professeurs,
       classroom_ids: Array.isArray(examData.classroom_ids)
-        ? examData.classroom_ids
-            .filter((id) => id && id !== 0)
-            .map((id) => parseInt(id, 10))
+        ? examData.classroom_ids.map(Number)
         : [],
-      // Format students data
       students: Array.isArray(examData.students)
         ? examData.students.map((student) => ({
-            studentId: student.studentId || student.id,
+            studentId: student.studentId,
             firstName: student.firstName || student.prenom,
             lastName: student.lastName || student.nom,
             email:
               student.email || `${student.studentId || student.id}@example.com`,
-            program: student.program || examData.filiere,
+            program: student.program || values.filiere,
+            cne: student.cne,
           }))
         : [],
     };
 
-    // Validate the formatted data
     if (!formattedData.classroom_ids.length) {
       throw new Error("At least one classroom must be selected");
     }

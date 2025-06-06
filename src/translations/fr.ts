@@ -27,9 +27,11 @@ export const fr = {
     students: "Étudiants",
     classrooms: "Ajouter une salle",
     exams: "Planification des examens",
+    superviseurs: "Surveillants",
     settings: "Paramètres",
     profile: "Profil",
     logout: "Déconnexion",
+    professeurs: "Professeurs",
   },
 
   // Dashboard
