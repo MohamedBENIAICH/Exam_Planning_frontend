@@ -33,7 +33,8 @@ export const fr = {
     logout: "Déconnexion",
     professeurs: "Professeurs",
     formations: "Formations",
-    filieres: "Filieres"
+    filieres: "Filières",
+    modules: "Modules",
   },
 
   // Dashboard

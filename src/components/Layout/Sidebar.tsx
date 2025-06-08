@@ -22,6 +22,7 @@ const navItems = [
   { path: "/superviseurs", label: fr.navigation.superviseurs, icon: User }, // Utilisez User2 pour Superviseurs
   { path: "/formations", label: fr.navigation.formations, icon: User },
   { path: "/filieres", label: fr.navigation.filieres, icon: User },
+  { path: "/modules", label: fr.navigation.modules, icon: User },
 ];
 
 const Sidebar = () => {

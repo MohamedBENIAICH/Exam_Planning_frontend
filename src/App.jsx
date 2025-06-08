@@ -19,6 +19,9 @@ import FormationsForm from "./components/Formations/FormationsForm";
 import Filieres from "./pages/Filieres";
 import FilieresForm from "./components/Filieres/FilieresForm";
 import FilieresUpdateForm from "./components/Filieres/FilieresUpdateForm.jsx";
+import Modules from "./pages/Modules";
+import ModulesForm from "./components/Modules/ModulesForm";
+import ModulesUpdateForm from "./components/Modules/ModulesUpdateForm.jsx";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +52,9 @@ const App = () => (
               path="/filieres/updateform"
               element={<FilieresUpdateForm />}
             />
+            <Route path="/modules" element={<Modules />} />
+            <Route path="/modules/form" element={<ModulesForm />} />
+            <Route path="/modules/updateform" element={<ModulesUpdateForm />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
