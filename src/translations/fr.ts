@@ -32,6 +32,8 @@ export const fr = {
     profile: "Profil",
     logout: "Déconnexion",
     professeurs: "Professeurs",
+    formations: "Formations",
+    filieres: "Filieres"
   },
 
   // Dashboard

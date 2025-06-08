@@ -14,6 +14,11 @@ import { StudentsProvider } from "./components/context/StudentsProvider"; // Imp
 import ProfesseursForm from "./components/Professeurs/ProfesseursForm";
 import Superviseurs from "./pages/Superviseurs";
 import SuperviseursForm from "./components/Superviseurs/SuperviseursForm";
+import Formations from "./pages/Formations";
+import FormationsForm from "./components/Formations/FormationsForm";
+import Filieres from "./pages/Filieres";
+import FilieresForm from "./components/Filieres/FilieresForm";
+import FilieresUpdateForm from "./components/Filieres/FilieresUpdateForm.jsx";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +41,14 @@ const App = () => (
             <Route path="/professeurs/form" element={<ProfesseursForm />} />
             <Route path="/superviseurs" element={<Superviseurs />} />
             <Route path="/superviseurs/form" element={<SuperviseursForm />} />
+            <Route path="/formations" element={<Formations />} />
+            <Route path="/formations/form" element={<FormationsForm />} />
+            <Route path="/filieres" element={<Filieres />} />
+            <Route path="/filieres/form" element={<FilieresForm />} />
+            <Route
+              path="/filieres/updateform"
+              element={<FilieresUpdateForm />}
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

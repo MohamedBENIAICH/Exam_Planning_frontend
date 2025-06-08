@@ -20,6 +20,8 @@ const navItems = [
   { path: "/exams", label: fr.navigation.exams, icon: Calendar },
   { path: "/professeurs", label: fr.navigation.professeurs, icon: User2 }, // Utilisez User2 pour Professeurs
   { path: "/superviseurs", label: fr.navigation.superviseurs, icon: User }, // Utilisez User2 pour Superviseurs
+  { path: "/formations", label: fr.navigation.formations, icon: User },
+  { path: "/filieres", label: fr.navigation.filieres, icon: User },
 ];
 
 const Sidebar = () => {
