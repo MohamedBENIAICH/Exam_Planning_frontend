@@ -8,7 +8,9 @@ import {
   Menu,
   User2,
   User,
-} from "lucide-react"; // Ajoutez User2
+  Clock,
+  History,
+} from "lucide-react"; // Ajoutez Clock et History
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fr } from "@/translations/fr";
@@ -18,6 +20,8 @@ const navItems = [
   //{ path: "/students", label: fr.navigation.students, icon: Users },
   { path: "/classrooms", label: fr.navigation.classrooms, icon: Building },
   { path: "/exams", label: fr.navigation.exams, icon: Calendar },
+  { path: "/past-exams", label: fr.navigation.pastExams, icon: History },
+  { path: "/upcoming-exams", label: fr.navigation.upcomingExams, icon: Clock },
   { path: "/professeurs", label: fr.navigation.professeurs, icon: User2 }, // Utilisez User2 pour Professeurs
   { path: "/superviseurs", label: fr.navigation.superviseurs, icon: User }, // Utilisez User2 pour Superviseurs
   { path: "/formations", label: fr.navigation.formations, icon: User },

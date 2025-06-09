@@ -4,7 +4,6 @@ import { Plus } from "lucide-react";
 import Header from "@/components/Layout/Header";
 import Sidebar from "@/components/Layout/Sidebar";
 import StatsCards from "@/components/Dashboard/StatsCards";
-import UpcomingExams from "@/components/Dashboard/UpcomingExams";
 import { fr } from "@/translations/fr";
 
 const Index = () => {
@@ -24,7 +23,6 @@ const Index = () => {
         />
         <div className="flex-1 p-4 sm:p-6 space-y-6 overflow-auto">
           <StatsCards />
-          <UpcomingExams />
         </div>
       </div>
     </div>

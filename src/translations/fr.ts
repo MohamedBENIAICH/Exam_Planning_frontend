@@ -27,6 +27,8 @@ export const fr = {
     students: "Étudiants",
     classrooms: "Ajouter une salle",
     exams: "Planification des examens",
+    pastExams: "Examens passés",
+    upcomingExams: "Examens à venir",
     superviseurs: "Surveillants",
     settings: "Paramètres",
     profile: "Profil",

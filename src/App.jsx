@@ -9,6 +9,8 @@ import Teachers from "./pages/Teachers";
 import Classrooms from "./pages/Classrooms";
 import Professeurs from "./pages/Professeurs";
 import ExamScheduling from "./pages/ExamScheduling";
+import PastExams from "./pages/PastExams";
+import UpcomingExams from "./pages/UpcomingExams";
 import NotFound from "./pages/NotFound";
 import { StudentsProvider } from "./components/context/StudentsProvider"; // Import StudentsProvider
 import ProfesseursForm from "./components/Professeurs/ProfesseursForm";
@@ -40,6 +42,8 @@ const App = () => (
             <Route path="/teachers" element={<Teachers />} />
             <Route path="/classrooms" element={<Classrooms />} />
             <Route path="/exams" element={<ExamScheduling />} />
+            <Route path="/past-exams" element={<PastExams />} />
+            <Route path="/upcoming-exams" element={<UpcomingExams />} />
             <Route path="/professeurs" element={<Professeurs />} />
             <Route path="/professeurs/form" element={<ProfesseursForm />} />
             <Route path="/superviseurs" element={<Superviseurs />} />

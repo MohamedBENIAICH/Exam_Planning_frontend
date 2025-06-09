@@ -50,6 +50,7 @@ interface ApiExam {
   duree: number;
   locaux: string;
   superviseurs: string;
+  professeurs: string;
   created_at: string;
   updated_at: string;
 }
@@ -157,18 +158,30 @@ const ExamSection = ({
   const fetchAssignmentsForExam = async (examId: number) => {
     setIsLoadingAssignments(true);
     try {
+      console.log(`Fetching assignments for exam ID: ${examId}`);
       const response = await fetch(
         `http://127.0.0.1:8000/api/exams/${examId}/assignments`
       );
+      
+      console.log(`Assignments response status: ${response.status}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
+      console.log("Assignments API Response:", data);
+      
       if (data.status === "success" && Array.isArray(data.data.assignments)) {
         setAssignments(data.data.assignments);
+        console.log(`Found ${data.data.assignments.length} assignments`);
       } else {
+        console.warn("No assignments found or invalid format:", data);
         setAssignments([]);
       }
     } catch (error) {
-      setAssignments([]);
       console.error("Error fetching assignments:", error);
+      setAssignments([]);
     } finally {
       setIsLoadingAssignments(false);
     }
@@ -421,13 +434,13 @@ const ExamSection = ({
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-gray-500" />
                         <h3 className="font-medium text-gray-900">
-                          {examen.module_name}
+                          {examen.module_name || "Module non spécifié"}
                         </h3>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <School className="h-3 w-3" />
                         <span>
-                          {examen.filiere_name} • {examen.cycle}
+                          {examen.filiere_name || "Filière non spécifiée"} • {examen.cycle || "Cycle non spécifié"}
                         </span>
                       </div>
                     </div>
@@ -438,7 +451,7 @@ const ExamSection = ({
                         className="flex items-center gap-1"
                       >
                         <Clock className="h-3 w-3" />
-                        {examen.heure_debut} ({examen.duree} min)
+                        {examen.heure_debut || "Heure non spécifiée"} ({examen.duree || 0} min)
                       </Badge>
 
                       <Badge
@@ -446,7 +459,7 @@ const ExamSection = ({
                         className="flex items-center gap-1"
                       >
                         <Building className="h-3 w-3" />
-                        {examen.locaux}
+                        {examen.locaux || "Salle non spécifiée"}
                       </Badge>
                     </div>
                   </div>
@@ -553,13 +566,19 @@ const ExamSection = ({
                       <div className="flex justify-between">
                         <span className="text-gray-600">Cycle:</span>
                         <span className="font-medium">
-                          {selectedExam.cycle}
+                          {selectedExam.cycle || "Non spécifié"}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Filière:</span>
                         <span className="font-medium">
-                          {selectedExam.filiere_name}
+                          {selectedExam.filiere_name || "Non spécifiée"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Module:</span>
+                        <span className="font-medium">
+                          {selectedExam.module_name || "Non spécifié"}
                         </span>
                       </div>
                     </div>
@@ -570,7 +589,7 @@ const ExamSection = ({
                     </h3>
                     <div className="space-y-1">
                       <p className="font-medium text-gray-800">
-                        {selectedExam.locaux}
+                        {selectedExam.locaux || "Salle non spécifiée"}
                       </p>
                     </div>
                   </div>
@@ -586,9 +605,10 @@ const ExamSection = ({
                           <Calendar className="h-4 w-4" />
                         </div>
                         <span className="text-gray-800">
-                          {format(new Date(selectedExam.date_examen), "PPP", {
-                            locale: fr,
-                          })}
+                          {selectedExam.date_examen ? 
+                            format(new Date(selectedExam.date_examen), "PPP", { locale: fr }) :
+                            "Date non spécifiée"
+                          }
                         </span>
                       </div>
                       <div className="flex items-center">
@@ -596,7 +616,7 @@ const ExamSection = ({
                           <Clock className="h-4 w-4" />
                         </div>
                         <span className="text-gray-800">
-                          {selectedExam.heure_debut} ({selectedExam.duree} min)
+                          {selectedExam.heure_debut || "Heure non spécifiée"} - {selectedExam.heure_fin || "Heure non spécifiée"} ({selectedExam.duree || 0} min)
                         </span>
                       </div>
                     </div>
@@ -605,10 +625,74 @@ const ExamSection = ({
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
                       Supervision
                     </h3>
-                    <div className="space-y-1">
-                      <p className="font-medium text-gray-800">
-                        {selectedExam.superviseurs}
-                      </p>
+                    <div className="space-y-2">
+                      {selectedExam.superviseurs && selectedExam.professeurs ? (
+                        // Les deux existent
+                        <>
+                          <div>
+                            <span className="text-sm text-gray-600 font-medium">Surveillants:</span>
+                            <p className="font-medium text-gray-800">
+                              {selectedExam.superviseurs}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-600 font-medium">Professeurs:</span>
+                            <p className="font-medium text-gray-800">
+                              {selectedExam.professeurs}
+                            </p>
+                          </div>
+                        </>
+                      ) : selectedExam.superviseurs ? (
+                        // Seuls les superviseurs existent
+                        <div>
+                          <span className="text-sm text-gray-600 font-medium">Surveillants:</span>
+                          <p className="font-medium text-gray-800">
+                            {selectedExam.superviseurs}
+                          </p>
+                        </div>
+                      ) : selectedExam.professeurs ? (
+                        // Seuls les professeurs existent
+                        <div>
+                          <span className="text-sm text-gray-600 font-medium">Professeurs:</span>
+                          <p className="font-medium text-gray-800">
+                            {selectedExam.professeurs}
+                          </p>
+                        </div>
+                      ) : (
+                        // Aucun des deux
+                        <p className="font-medium text-gray-800">
+                          Aucun surveillant ou professeur spécifié
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
+                      Informations Techniques
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">ID:</span>
+                        <span className="font-medium">{selectedExam.id}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Créé le:</span>
+                        <span className="font-medium">
+                          {selectedExam.created_at ? 
+                            format(new Date(selectedExam.created_at), "dd/MM/yyyy HH:mm", { locale: fr }) :
+                            "Non spécifié"
+                          }
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Modifié le:</span>
+                        <span className="font-medium">
+                          {selectedExam.updated_at ? 
+                            format(new Date(selectedExam.updated_at), "dd/MM/yyyy HH:mm", { locale: fr }) :
+                            "Non spécifié"
+                          }
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -811,3 +895,4 @@ const UpcomingExams = () => {
 };
 
 export default UpcomingExams;
+export { ExamSection };
