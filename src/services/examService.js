@@ -256,3 +256,51 @@ export const getLatestExams = async () => {
     throw error;
   }
 };
+
+/**
+ * Download exam PDF with student list
+ * @param {string} id - Exam ID
+ * @returns {Promise<void>} - Promise that resolves when the PDF is downloaded
+ */
+export const downloadExamPdf = async (id) => {
+  try {
+    const response = await fetch(`${API_URL}/exams/${id}/download-pdf`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
+    }
+
+    // Get the filename from the Content-Disposition header
+    const contentDisposition = response.headers.get("Content-Disposition");
+    let filename = "convocation_examen.pdf";
+
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+      if (filenameMatch) {
+        filename = filenameMatch[1];
+      }
+    }
+
+    // Convert response to blob
+    const blob = await response.blob();
+
+    // Create download link
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+
+    // Cleanup
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error(`Failed to download PDF for exam with ID ${id}:`, error);
+    throw error;
+  }
+};

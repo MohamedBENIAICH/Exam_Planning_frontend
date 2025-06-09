@@ -12,6 +12,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   UserIcon,
+  Download,
 } from "lucide-react";
 import Header from "@/components/Layout/Header";
 import Sidebar from "@/components/Layout/Sidebar";
@@ -44,6 +45,7 @@ import {
 } from "@/lib/mockData";
 import { Exam } from "@/types";
 import { fr } from "@/translations/fr";
+import { downloadExamPdf } from "@/services/examService";
 
 type Assignment = {
   classroom_id: number;
@@ -763,6 +765,23 @@ const ExamScheduling = () => {
     setIsDeleteDialogOpen(true);
   };
 
+  const handleDownloadPdf = async (examId: string) => {
+    try {
+      await downloadExamPdf(examId);
+      toast({
+        title: "Succès",
+        description: "Le PDF de convocation a été téléchargé avec succès.",
+      });
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger le PDF. Veuillez réessayer.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const fetchClassroomName = async (classroomId: string) => {
     try {
       if (!classroomId) {
@@ -1202,6 +1221,14 @@ const ExamScheduling = () => {
                               onClick={() => handleDeleteClick(exam)}
                             >
                               Supprimer
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDownloadPdf(exam.id)}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              PDF
                             </Button>
                             <Button
                               variant="outline"
