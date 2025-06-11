@@ -103,7 +103,8 @@ const ExamScheduling = () => {
     heure_debut: string;
     heure_fin: string;
     locaux?: string;
-    superviseurs?: string;
+    superviseurs?: Array<{ id: number; nom: string; prenom: string; email: string; }>;
+    professeurs?: Array<{ id: number; nom: string; prenom: string; email: string; }>;
     created_at: string;
     updated_at: string;
     students?: Array<{
@@ -218,10 +219,20 @@ const ExamScheduling = () => {
               startTime: apiExam.heure_debut || "",
               endTime: apiExam.heure_fin || "",
               classrooms: classrooms,
-              supervisors: apiExam.superviseurs ? [apiExam.superviseurs] : [],
+              supervisors: apiExam.superviseurs 
+                ? (Array.isArray(apiExam.superviseurs) 
+                    ? apiExam.superviseurs.map(supervisor => 
+                        `${supervisor.prenom || ''} ${supervisor.nom || ''}`.trim()
+                      )
+                    : [apiExam.superviseurs])
+                : [],
               students: apiExam.students
                 ? apiExam.students.map((student) => student.id.toString())
                 : [],
+              // Ajouter les données brutes pour l'affichage des détails
+              rawSuperviseurs: apiExam.superviseurs,
+              rawProfesseurs: apiExam.professeurs,
+              rawStudents: apiExam.students
             };
           });
 
@@ -1189,22 +1200,40 @@ const ExamScheduling = () => {
                               <div>
                                 <p className="text-sm font-medium flex items-center gap-1">
                                   <Users className="h-4 w-4" />
-                                  {fr.examScheduling.supervisors}
+                                  {fr.examScheduling.supervisors}:
                                 </p>
                                 <p className="text-sm">
-                                  {getTeacherNames(exam.supervisors)}
+                                  {exam.supervisors && exam.supervisors.length > 0
+                                    ? exam.supervisors.join(", ")
+                                    : fr.examScheduling.noSupervisorsAssigned}
                                 </p>
                               </div>
+                              {/* Professors */}
                               <div>
                                 <p className="text-sm font-medium flex items-center gap-1">
-                                  <Users className="h-4 w-4" />
-                                  {fr.examScheduling.students}
+                                  <UserIcon className="h-4 w-4 text-muted-foreground" />
+                                  Professeurs:
+                                </p>
+                                <p className="text-sm">
+                                  {exam.rawProfesseurs && (
+                                    Array.isArray(exam.rawProfesseurs) 
+                                      ? exam.rawProfesseurs.map(professeur => 
+                                          `${professeur.prenom || ''} ${professeur.nom || ''}`.trim()
+                                        ).join(', ')
+                                      : exam.rawProfesseurs || "Aucun professeur assigné"
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium flex items-center gap-1">
+                                  <Users className="h-4 w-4" /> {/* Use Users icon as before */}
+                                  {fr.examScheduling.students}:
                                 </p>
                                 <p className="text-sm">
                                   {getStudentCount(exam.students)}{" "}
                                   {fr.examScheduling.studentCount}
                                 </p>
-                              </div>
                             </div>
                           </CardContent>
                           <CardFooter className="flex justify-end gap-2">
@@ -1367,10 +1396,34 @@ const ExamScheduling = () => {
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
                       Supervision
                     </h3>
-                    <div className="space-y-1">
-                      <p className="font-medium text-gray-800">
-                        {getTeacherNames(selectedExam.supervisors)}
-                      </p>
+                    <div className="space-y-2">
+                      {selectedExam.supervisors && selectedExam.supervisors.length > 0 && (
+                        <div>
+                          <span className="text-sm text-gray-600 font-medium">Surveillants:</span>
+                          <p className="font-medium text-gray-800">
+                            {getTeacherNames(selectedExam.supervisors)}
+                          </p>
+                        </div>
+                      )}
+                      {selectedExam.rawProfesseurs && (
+                        <div>
+                          <span className="text-sm text-gray-600 font-medium">Professeurs:</span>
+                          <p className="font-medium text-gray-800">
+                            {Array.isArray(selectedExam.rawProfesseurs) 
+                              ? selectedExam.rawProfesseurs.map(professeur => 
+                                  `${professeur.prenom || ''} ${professeur.nom || ''}`.trim()
+                                ).join(', ')
+                              : selectedExam.rawProfesseurs || "Aucun professeur assigné"
+                            }
+                          </p>
+                        </div>
+                      )}
+                      {(!selectedExam.supervisors || selectedExam.supervisors.length === 0) && 
+                       (!selectedExam.rawProfesseurs || (Array.isArray(selectedExam.rawProfesseurs) && selectedExam.rawProfesseurs.length === 0)) && (
+                        <p className="font-medium text-gray-800">
+                          Aucun surveillant ou professeur assigné
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

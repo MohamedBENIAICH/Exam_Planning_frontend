@@ -235,18 +235,64 @@ export const getLatestExams = async () => {
     if (data.status === "success" && Array.isArray(data.data)) {
       return {
         ...data,
-        data: data.data.map((exam) => ({
-          id: exam.id.toString(),
-          cycle: exam.cycle,
-          filiere: exam.filiere,
-          module: exam.module,
-          date: exam.date_examen,
-          startTime: exam.heure_debut,
-          endTime: exam.heure_fin,
-          classrooms: exam.locaux ? exam.locaux.split(",") : [],
-          supervisors: exam.superviseurs ? exam.superviseurs.split(",") : [],
-          students: exam.students ? exam.students.split(",") : [],
-        })),
+        data: data.data.map((exam) => {
+          // Traiter les superviseurs
+          let supervisors = [];
+          if (exam.superviseurs) {
+            if (Array.isArray(exam.superviseurs)) {
+              // Si c'est un tableau d'objets (relations)
+              supervisors = exam.superviseurs.map((supervisor) =>
+                `${supervisor.prenom || ""} ${supervisor.nom || ""}`.trim()
+              );
+            } else if (typeof exam.superviseurs === "string") {
+              // Si c'est une chaîne
+              supervisors = exam.superviseurs.split(",").map((s) => s.trim());
+            }
+          }
+
+          // Traiter les professeurs
+          let professors = [];
+          if (exam.professeurs) {
+            if (Array.isArray(exam.professeurs)) {
+              // Si c'est un tableau d'objets (relations)
+              professors = exam.professeurs.map((professeur) =>
+                `${professeur.prenom || ""} ${professeur.nom || ""}`.trim()
+              );
+            } else if (typeof exam.professeurs === "string") {
+              // Si c'est une chaîne
+              professors = exam.professeurs.split(",").map((p) => p.trim());
+            }
+          }
+
+          // Traiter les étudiants
+          let students = [];
+          if (exam.students) {
+            if (Array.isArray(exam.students)) {
+              // Si c'est un tableau d'objets (relations)
+              students = exam.students.map((student) => student.id.toString());
+            } else if (typeof exam.students === "string") {
+              // Si c'est une chaîne
+              students = exam.students.split(",").map((s) => s.trim());
+            }
+          }
+
+          return {
+            id: exam.id.toString(),
+            cycle: exam.cycle,
+            filiere: exam.filiere,
+            module: exam.module,
+            date: exam.date_examen,
+            startTime: exam.heure_debut,
+            endTime: exam.heure_fin,
+            classrooms: exam.locaux ? exam.locaux.split(",") : [],
+            supervisors: supervisors,
+            students: students,
+            // Ajouter les données brutes pour l'affichage des détails
+            rawSuperviseurs: exam.superviseurs,
+            rawProfesseurs: exam.professeurs,
+            rawStudents: exam.students,
+          };
+        }),
       };
     }
 
