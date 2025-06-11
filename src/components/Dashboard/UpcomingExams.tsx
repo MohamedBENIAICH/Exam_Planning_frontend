@@ -15,6 +15,7 @@ import {
   ChevronUp,
   ChevronDown,
   User,
+  Download,
 } from "lucide-react";
 import {
   Card,
@@ -38,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import ExamForm from "@/components/Exams/ExamForm";
+import { downloadExamPdf } from "@/services/examService";
 
 interface ApiExam {
   id: number;
@@ -296,31 +298,44 @@ const ExamSection = ({
         }
       );
 
-      if (response.ok) {
-        toast({
-          title: "Examen supprimé",
-          description: "L'examen a été supprimé avec succès",
-          variant: "destructive",
-        });
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Erreur",
-          description:
-            errorData.message || "Échec de la suppression de l'examen",
-          variant: "destructive",
-        });
+      if (!response.ok) {
+        throw new Error("Failed to delete exam");
       }
+
+      toast({
+        title: "Succès",
+        description: "L'examen a été supprimé avec succès.",
+      });
+
+      // Remove the exam from the list
+      onExamUpdate({ ...exam, id: -1 }); // Mark as deleted
     } catch (error) {
+      console.error("Error deleting exam:", error);
       toast({
         title: "Erreur",
-        description:
-          "Une erreur s'est produite lors de la suppression de l'examen",
+        description: "Une erreur s'est produite lors de la suppression de l'examen",
         variant: "destructive",
       });
     } finally {
       setIsDeleteDialogOpen(false);
       setExamToDelete(null);
+    }
+  };
+
+  const handleDownloadPdf = async (examId: number) => {
+    try {
+      await downloadExamPdf(examId.toString());
+      toast({
+        title: "Succès",
+        description: "Le PDF de convocation a été téléchargé avec succès.",
+      });
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de télécharger le PDF. Veuillez réessayer.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -472,6 +487,14 @@ const ExamSection = ({
                   >
                     <Info className="h-4 w-4 mr-2" />
                     Détail
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDownloadPdf(examen.id)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    PDF
                   </Button>
                   {!isPastExams && (
                     <Button
