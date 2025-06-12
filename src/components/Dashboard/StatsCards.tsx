@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface StatsData {
   totalExams: number;
-  totalStudents: number;
+  totalTeachers: number;
   availableClassrooms: number;
 }
 
@@ -18,7 +18,7 @@ const StatsCards = () => {
       try {
         const endpoints = [
           "http://127.0.0.1:8000/api/exams/count",
-          "http://127.0.0.1:8000/api/students/count",
+          "http://127.0.0.1:8000/api/professeurs/count",
           "http://127.0.0.1:8000/api/classrooms/count",
         ];
 
@@ -29,14 +29,14 @@ const StatsCards = () => {
         // Extract counts from responses
         const counts = responses.map((response) => {
           if (response.status === "success") {
-            return response.count || 0;
+            return response.count ?? response.total ?? response.data ?? 0;
           }
           return 0;
         });
 
         setStats({
           totalExams: counts[0],
-          totalStudents: counts[1],
+          totalTeachers: counts[1],
           availableClassrooms: counts[2],
         });
       } catch (err) {
@@ -63,14 +63,14 @@ const StatsCards = () => {
       color: "text-blue-500",
     },
     {
-      title: "Total des Étudiants",
-      value: stats?.totalStudents ?? 0,
+      title: "Total des Professeurs",
+      value: stats?.totalTeachers ?? 0,
       icon: Users,
-      description: "Inscrits dans le système",
+      description: "Dans tous les départements",
       color: "text-green-500",
     },
     {
-      title: "Salles Disponibles",
+      title: "Total des Locaux",
       value: stats?.availableClassrooms ?? 0,
       icon: Building,
       description: "Prêtes pour la planification",

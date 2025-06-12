@@ -9,6 +9,7 @@ import Teachers from "./pages/Teachers";
 import Classrooms from "./pages/Classrooms";
 import Professeurs from "./pages/Professeurs";
 import ExamScheduling from "./pages/ExamScheduling";
+import ConcourScheduling from "./pages/ConcourScheduling";
 import PastExams from "./pages/PastExams";
 import UpcomingExams from "./pages/UpcomingExams";
 import NotFound from "./pages/NotFound";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/teachers" element={<Teachers />} />
             <Route path="/classrooms" element={<Classrooms />} />
             <Route path="/exams" element={<ExamScheduling />} />
+            <Route path="/concours" element={<ConcourScheduling />} />
             <Route path="/past-exams" element={<PastExams />} />
             <Route path="/upcoming-exams" element={<UpcomingExams />} />
             <Route path="/professeurs" element={<Professeurs />} />

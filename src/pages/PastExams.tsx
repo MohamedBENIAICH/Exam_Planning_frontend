@@ -28,16 +28,14 @@ const PastExams = () => {
     const fetchExams = async () => {
       try {
         console.log("Fetching past exams from API...");
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/exams/passed"
-        );
-        
+        const response = await fetch("http://127.0.0.1:8000/api/exams/passed");
+
         console.log("Response status:", response.status);
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log("API Response:", data);
 
@@ -50,7 +48,11 @@ const PastExams = () => {
         }
       } catch (err) {
         console.error("Error fetching past exams:", err);
-        setError(err instanceof Error ? err.message : "Une erreur s'est produite lors du chargement des examens passés");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Une erreur s'est produite lors du chargement des examens passés"
+        );
       } finally {
         setLoading(false);
       }
@@ -69,8 +71,8 @@ const PastExams = () => {
     <div className="min-h-screen flex">
       <Sidebar />
       <div className="flex-1 flex flex-col">
-        <Header 
-          title="Examens passés" 
+        <Header
+          title="Examens passés"
           subtitle="Historique des examens terminés"
         />
         <div className="flex-1 p-4 sm:p-6">
@@ -87,4 +89,4 @@ const PastExams = () => {
   );
 };
 
-export default PastExams; 
+export default PastExams;

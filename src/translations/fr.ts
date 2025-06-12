@@ -37,6 +37,7 @@ export const fr = {
     formations: "Formations",
     filieres: "Filières",
     modules: "Modules",
+    concours: "Concours",
   },
 
   // Dashboard

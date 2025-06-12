@@ -27,6 +27,7 @@ const navItems = [
   { path: "/formations", label: fr.navigation.formations, icon: User },
   { path: "/filieres", label: fr.navigation.filieres, icon: User },
   { path: "/modules", label: fr.navigation.modules, icon: User },
+  { path: "/concours", label: fr.navigation.concours, icon: Calendar },
 ];
 
 const Sidebar = () => {
