@@ -2,7 +2,7 @@
 
 ## Une interface utilisateur intuitive pour la gestion des examens et concours universitaires.
 
-Ce projet est l'interface utilisateur (frontend) de l'application FST Digital, développée avec React et Vite. Il permet aux utilisateurs d'interagir avec l'API backend pour la planification, l'organisation et le suivi des examens.
+Ce projet est l'interface utilisateur (frontend) de l'application FST Digital, développée avec React et Vite. Il permet aux utilisateurs d'interagir avec l'API backend pour la planification, l'organisation et le suivi des examens. Il inclut aussi la gestion des concours.
 
 ## Technologies Utilisées
 
