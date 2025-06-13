@@ -560,8 +560,8 @@ const ConcourScheduling = () => {
                   {Array.isArray(selectedConcour.superviseurs) &&
                   selectedConcour.superviseurs.length > 0 ? (
                     selectedConcour.superviseurs.map((s) => (
-                      <li key={s.id || s}>
-                        {typeof s === 'object' ? `${s.prenom} ${s.nom}` : getSuperviseurName(s)}
+                      <li key={s.id}>
+                        {`${s.prenom} ${s.nom}`}
                       </li>
                     ))
                   ) : (
@@ -575,8 +575,8 @@ const ConcourScheduling = () => {
                   {Array.isArray(selectedConcour.professeurs) &&
                   selectedConcour.professeurs.length > 0 ? (
                     selectedConcour.professeurs.map((p) => (
-                      <li key={p.id || p}>
-                        {typeof p === 'object' ? `${p.prenom} ${p.nom}` : getProfesseurName(p)}
+                      <li key={p.id}>
+                        {`${p.prenom} ${p.nom}`}
                       </li>
                     ))
                   ) : (
@@ -590,8 +590,8 @@ const ConcourScheduling = () => {
                   {Array.isArray(selectedConcour.candidats) &&
                   selectedConcour.candidats.length > 0 ? (
                     selectedConcour.candidats.map((c) => (
-                      <li key={c.id || c}>
-                        {getCandidatName(c)}
+                      <li key={c.id}>
+                        {`${c.prenom} ${c.nom}`}
                       </li>
                     ))
                   ) : (

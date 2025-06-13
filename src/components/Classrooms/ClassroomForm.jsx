@@ -51,7 +51,15 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
       try {
         const response = await getDepartments();
         if (response.status === "success") {
-          setDepartments(response.data);
+          const uniqueDepartments = [];
+          const seenNames = new Set();
+          response.data.forEach((dept) => {
+            if (!seenNames.has(dept.nom_departement)) {
+              seenNames.add(dept.nom_departement);
+              uniqueDepartments.push(dept);
+            }
+          });
+          setDepartments(uniqueDepartments);
         }
       } catch (error) {
         toast({
@@ -97,13 +105,13 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
         const response = await createClassroom(values);
         console.log("Create classroom response:", response);
 
-        if (response && response.status === "success") {
+        if (response && response.id) {
           toast({
             title: "Salle créée",
             description: "La salle a été créée avec succès",
           });
           onSubmit({
-            id: response.data.id,
+            id: response.id,
             name: values.name,
             building: values.building,
             capacity: values.capacity,
@@ -115,7 +123,12 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
         // Only handle errors if we haven't returned from success case
         if (response && response.errors) {
           const errorMessages = Object.entries(response.errors)
-            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(", ") : messages}`)
+            .map(
+              ([field, messages]) =>
+                `${field}: ${
+                  Array.isArray(messages) ? messages.join(", ") : messages
+                }`
+            )
             .join("\n");
           throw new Error(errorMessages);
         }
@@ -162,7 +175,10 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Bâtiment</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Sélectionnez un département" />
@@ -170,7 +186,10 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
                   </FormControl>
                   <SelectContent>
                     {departments.map((dept) => (
-                      <SelectItem key={dept.id_departement} value={dept.nom_departement}>
+                      <SelectItem
+                        key={dept.id_departement}
+                        value={dept.nom_departement}
+                      >
                         {dept.nom_departement}
                       </SelectItem>
                     ))}

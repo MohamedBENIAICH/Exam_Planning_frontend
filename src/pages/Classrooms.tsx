@@ -72,7 +72,7 @@ const Classrooms = () => {
         });
       } else {
         // Add new classroom
-        setClassrooms(prevClassrooms => [...prevClassrooms, classroom]);
+        setClassrooms(prevClassrooms => [classroom, ...prevClassrooms]);
         toast({
           title: "Salle ajoutée",
           description: `${classroom.name} a été ajoutée avec succès`,
@@ -104,6 +104,7 @@ const Classrooms = () => {
     if (!classroomToDelete) return;
 
     try {
+      console.log("Attempting to delete classroom with ID:", classroomToDelete.id);
       await deleteClassroom(classroomToDelete.id);
       setClassrooms(prevClassrooms => 
         prevClassrooms.filter(classroom => classroom.id !== classroomToDelete.id)
@@ -184,11 +185,11 @@ const Classrooms = () => {
                       </CardTitle>
                       <CardDescription>{classroom.building}</CardDescription>
                     </div>
-                    <Badge 
+                    {/* <Badge 
                       variant={classroom.isAvailable ? "default" : "secondary"}
                     >
                       {classroom.isAvailable ? "Disponible" : "Indisponible"}
-                    </Badge>
+                    </Badge> */}
                   </div>
                 </CardHeader>
                 <CardContent>

@@ -76,7 +76,7 @@ export const getAllClassrooms = async () => {
     // Convert backend data format to frontend format
     if (data.status === "success" && Array.isArray(data.data)) {
       return data.data.map((classroom) => ({
-        id: classroom.id.toString(),
+        id: classroom.id,
         name: classroom.nom_du_local,
         building: classroom.departement,
         capacity: classroom.capacite,

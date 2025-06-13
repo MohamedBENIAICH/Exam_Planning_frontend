@@ -179,6 +179,74 @@ const ConcoursForm = ({
     }
   }, [selectedCandidats, form]);
 
+  // Fonction pour vérifier la disponibilité des salles
+  const checkSalleAvailability = async (date, heureDebut, heureFin, locaux) => {
+    if (!date || !heureDebut || !heureFin || !locaux || locaux.length === 0) {
+      return { available: true, conflicts: [] };
+    }
+
+    try {
+      const response = await fetch(
+        "http://localhost:8000/api/concours/check-salle-availability",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            date_concours: format(date, "yyyy-MM-dd"),
+            heure_debut: heureDebut,
+            heure_fin: heureFin,
+            locaux: locaux,
+            exclude_concours_id: concour?.id || null,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (error) {
+      console.error("Erreur lors de la vérification de disponibilité:", error);
+    }
+
+    return { available: true, conflicts: [] };
+  };
+
+  // Vérifier la disponibilité quand les champs changent
+  useEffect(() => {
+    const date = form.getValues("date_concours");
+    const heureDebut = form.getValues("heure_debut");
+    const heureFin = form.getValues("heure_fin");
+    const locaux = form.getValues("locaux");
+
+    if (date && heureDebut && heureFin && locaux && locaux.length > 0) {
+      const timeoutId = setTimeout(async () => {
+        const availability = await checkSalleAvailability(
+          date,
+          heureDebut,
+          heureFin,
+          locaux
+        );
+        if (!availability.available) {
+          toast({
+            title: "Conflit de salles détecté",
+            description: `Certaines salles ne sont pas disponibles à cette date/heure.`,
+            variant: "destructive",
+          });
+        }
+      }, 1000); // Délai de 1 seconde pour éviter trop de requêtes
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    form.watch("date_concours"),
+    form.watch("heure_debut"),
+    form.watch("heure_fin"),
+    form.watch("locaux"),
+  ]);
+
   // Load departments
   useEffect(() => {
     const loadDepartments = async () => {
@@ -353,9 +421,8 @@ const ConcoursForm = ({
   }, [selectedDepartment, toast]);
 
   const handleFormSubmit = async (values) => {
-    console.log("Submitting concours with values:", values);
     try {
-      // Format locaux as a string (join names or IDs)
+      // Convert locaux array to string
       let locauxString = "";
       if (Array.isArray(values.locaux)) {
         // If you want to send names:
@@ -388,8 +455,15 @@ const ConcoursForm = ({
 
       console.log("Payload sent to backend:", payload);
 
-      const response = await fetch("http://localhost:8000/api/concours", {
-        method: "POST",
+      // Determine if this is an update or create operation
+      const isUpdate = concour && concour.id;
+      const url = isUpdate
+        ? `http://localhost:8000/api/concours/${concour.id}`
+        : "http://localhost:8000/api/concours";
+      const method = isUpdate ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method: method,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
@@ -400,18 +474,40 @@ const ConcoursForm = ({
 
       if (!response.ok) {
         const errorData = await response.json();
+
+        // Gérer les conflits de salles
+        if (response.status === 409 && errorData.conflicts) {
+          const conflictMessages = errorData.conflicts
+            .map(
+              (conflict) =>
+                `Salle "${conflict.local}" : Conflit avec "${conflict.conflict_with}" (${conflict.date} de ${conflict.heure_debut} à ${conflict.heure_fin})`
+            )
+            .join("\n");
+
+          throw new Error(
+            `Conflit de disponibilité des salles:\n${conflictMessages}`
+          );
+        }
+
         throw new Error(
-          errorData.message || "Erreur lors de la création du concours"
+          errorData.message ||
+            `Erreur lors de ${
+              isUpdate ? "la modification" : "la création"
+            } du concours`
         );
       }
 
       const data = await response.json();
-      toast({ title: "Succès", description: "Concours enregistré !" });
+      toast({
+        title: "Succès",
+        description: isUpdate ? "Concours modifié !" : "Concours enregistré !",
+      });
       if (onSubmit) onSubmit(data);
     } catch (error) {
       toast({
         title: "Erreur",
-        description: error.message || "Erreur lors de la création du concours",
+        description:
+          error.message || "Erreur lors de l'enregistrement du concours",
         variant: "destructive",
       });
     }
