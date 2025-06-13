@@ -472,10 +472,47 @@ const ConcoursForm = ({
         credentials: "omit",
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
+      // Get response text first to debug what we're receiving
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+      console.log("Response status:", response.status);
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
 
-        // Gérer les conflits de salles
+      // Check if response is successful
+      if (!response.ok) {
+        let errorData;
+
+        // Try to parse as JSON, but handle HTML responses gracefully
+        if (
+          responseText.trim().startsWith("{") ||
+          responseText.trim().startsWith("[")
+        ) {
+          try {
+            errorData = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error(
+              "Failed to parse error response as JSON:",
+              parseError
+            );
+            errorData = {
+              message: `HTTP ${response.status}: ${response.statusText}`,
+            };
+          }
+        } else {
+          // If it's HTML or other non-JSON, create a generic error
+          console.warn(
+            "Received non-JSON error response:",
+            responseText.substring(0, 200)
+          );
+          errorData = {
+            message: `HTTP ${response.status}: ${response.statusText}`,
+          };
+        }
+
+        // Handle specific conflict errors
         if (response.status === 409 && errorData.conflicts) {
           const conflictMessages = errorData.conflicts
             .map(
@@ -497,13 +534,48 @@ const ConcoursForm = ({
         );
       }
 
-      const data = await response.json();
+      // Parse successful response data
+      let data;
+
+      // Check if the response text looks like JSON
+      if (
+        responseText.trim().startsWith("{") ||
+        responseText.trim().startsWith("[")
+      ) {
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(
+            "Failed to parse success response as JSON:",
+            parseError
+          );
+          console.log("Response text that failed to parse:", responseText);
+          // If parsing fails but the request was successful, just use a default response
+          data = { success: true, message: "Concours créé avec succès" };
+        }
+      } else {
+        // If the response is not JSON (like HTML success page), create a default success response
+        console.log("Received non-JSON success response, assuming success");
+        data = { success: true, message: "Concours créé avec succès" };
+      }
+
       toast({
         title: "Succès",
         description: isUpdate ? "Concours modifié !" : "Concours enregistré !",
       });
-      if (onSubmit) onSubmit(data);
+
+      // Add debugging for the onSubmit callback
+      if (onSubmit) {
+        try {
+          console.log("Calling onSubmit with data:", data);
+          onSubmit(data);
+        } catch (callbackError) {
+          console.error("Error in onSubmit callback:", callbackError);
+          // Don't show error toast here since the concours was created successfully
+        }
+      }
     } catch (error) {
+      console.error("Form submission error:", error);
       toast({
         title: "Erreur",
         description:

@@ -161,7 +161,7 @@ const ModulesForm = ({ onSubmit, onCancel, initialValues }) => {
                 </FormControl>
                 <SelectContent>
                   {[1, 2, 3, 4, 5, 6].map((num) => (
-                    <SelectItem key={num} value={`Semestre ${num}`}>
+                    <SelectItem key={num} value={`${num}`}>
                       Semestre {num}
                     </SelectItem>
                   ))}

@@ -12,6 +12,9 @@ import {
   History,
   Settings,
   ChevronDown,
+  BookOpen,
+  GraduationCap,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,9 +32,9 @@ const settingsNavItems = [
   { path: "/classrooms", label: fr.navigation.classrooms, icon: Building },
   { path: "/professeurs", label: fr.navigation.professeurs, icon: User2 },
   { path: "/superviseurs", label: fr.navigation.superviseurs, icon: User },
-  { path: "/formations", label: fr.navigation.formations, icon: Users },
-  { path: "/filieres", label: fr.navigation.filieres, icon: Users },
-  { path: "/modules", label: fr.navigation.modules, icon: Users },
+  { path: "/formations", label: fr.navigation.formations, icon: GraduationCap },
+  { path: "/filieres", label: fr.navigation.filieres, icon: Layers },
+  { path: "/modules", label: fr.navigation.modules, icon: BookOpen },
 ];
 
 const Sidebar = () => {

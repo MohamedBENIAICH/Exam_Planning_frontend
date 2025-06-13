@@ -125,10 +125,13 @@ const ExamForm = ({
           date: exam.date_examen ? new Date(exam.date_examen) : new Date(),
           startTime: exam.heure_debut || "09:00",
           endTime: exam.heure_fin || "11:00",
-          classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
+          classrooms: Array.isArray(exam.classroom_ids)
+            ? exam.classroom_ids
+            : [],
           supervisors: Array.isArray(exam.superviseurs)
             ? exam.superviseurs.map((supervisor) => {
-                const id = typeof supervisor === "object" ? supervisor.id : supervisor;
+                const id =
+                  typeof supervisor === "object" ? supervisor.id : supervisor;
                 const numId = typeof id === "string" ? parseInt(id, 10) : id;
                 return isNaN(numId) ? 0 : numId;
               })
@@ -140,7 +143,8 @@ const ExamForm = ({
             : [],
           professors: Array.isArray(exam.professeurs)
             ? exam.professeurs.map((professor) => {
-                const id = typeof professor === "object" ? professor.id : professor;
+                const id =
+                  typeof professor === "object" ? professor.id : professor;
                 const numId = typeof id === "string" ? parseInt(id, 10) : id;
                 return isNaN(numId) ? 0 : numId;
               })
@@ -182,7 +186,8 @@ const ExamForm = ({
         classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
         supervisors: Array.isArray(exam.superviseurs)
           ? exam.superviseurs.map((supervisor) => {
-              const id = typeof supervisor === "object" ? supervisor.id : supervisor;
+              const id =
+                typeof supervisor === "object" ? supervisor.id : supervisor;
               const numId = typeof id === "string" ? parseInt(id, 10) : id;
               return isNaN(numId) ? 0 : numId;
             })
@@ -194,7 +199,8 @@ const ExamForm = ({
           : [],
         professors: Array.isArray(exam.professeurs)
           ? exam.professeurs.map((professor) => {
-              const id = typeof professor === "object" ? professor.id : professor;
+              const id =
+                typeof professor === "object" ? professor.id : professor;
               const numId = typeof id === "string" ? parseInt(id, 10) : id;
               return isNaN(numId) ? 0 : numId;
             })
@@ -660,11 +666,11 @@ const ExamForm = ({
       // Map selected supervisor IDs to their complete information
       const supervisorsToSubmit = values.supervisors
         ? values.supervisors
-        .map((supervisorId) =>
-          supervisorsByDepartment.find(
-            (supervisor) => supervisor.id === supervisorId
-          )
-        )
+            .map((supervisorId) =>
+              supervisorsByDepartment.find(
+                (supervisor) => supervisor.id === supervisorId
+              )
+            )
             .filter((supervisor) => supervisor !== undefined)
         : [];
 
@@ -736,11 +742,10 @@ const ExamForm = ({
         professeurs: professorsToSubmit
           .map((p) => `${p.prenom} ${p.nom}`)
           .join(", "),
-        superviseurs: supervisorsToSubmit.length > 0
-          ? supervisorsToSubmit
-              .map((s) => `${s.prenom} ${s.nom}`)
-              .join(", ")
-          : undefined,
+        superviseurs:
+          supervisorsToSubmit.length > 0
+            ? supervisorsToSubmit.map((s) => `${s.prenom} ${s.nom}`).join(", ")
+            : undefined,
         classroom_ids: values.classrooms.map((id) => parseInt(id, 10)),
         students: studentsToSubmit.map((student) => ({
           studentId: student.studentId || student.id,
@@ -1463,47 +1468,58 @@ const ExamForm = ({
                               </div>
                             ) : availableClassrooms.length > 0 ? (
                               availableClassrooms
-                                .filter(classroom => {
+                                .filter((classroom) => {
                                   // Filter out amphitheaters when showing classrooms
                                   if (selectedClassroomType === "classroom") {
-                                    return !amphitheaters.some(amphi => amphi.id === classroom.id);
+                                    return !amphitheaters.some(
+                                      (amphi) => amphi.id === classroom.id
+                                    );
                                   }
                                   return true;
                                 })
                                 .map((classroom) => (
-                                <div
-                                  key={classroom.id}
-                                  className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
-                                >
-                                  <div className="flex items-start gap-2">
-                                    <Checkbox
-                                      id={`classroom-${classroom.id}`}
-                                        checked={field.value.includes(classroom.id)}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                            field.onChange([...field.value, classroom.id]);
-                                        } else {
-                                          field.onChange(
-                                              field.value.filter((id) => id !== classroom.id)
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <label
-                                      htmlFor={`classroom-${classroom.id}`}
-                                      className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                    >
-                                        {classroom.nom_du_local} - Capacité: {classroom.capacite}
-                                    </label>
+                                  <div
+                                    key={classroom.id}
+                                    className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                                  >
+                                    <div className="flex items-start gap-2">
+                                      <Checkbox
+                                        id={`classroom-${classroom.id}`}
+                                        checked={field.value.includes(
+                                          classroom.id
+                                        )}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            field.onChange([
+                                              ...field.value,
+                                              classroom.id,
+                                            ]);
+                                          } else {
+                                            field.onChange(
+                                              field.value.filter(
+                                                (id) => id !== classroom.id
+                                              )
+                                            );
+                                          }
+                                        }}
+                                      />
+                                      <label
+                                        htmlFor={`classroom-${classroom.id}`}
+                                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                      >
+                                        {classroom.nom_du_local} - Capacité:{" "}
+                                        {classroom.capacite}
+                                      </label>
+                                    </div>
+                                    <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
+                                      Disponible
+                                    </span>
                                   </div>
-                                  <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                                    Disponible
-                                  </span>
-                                </div>
-                              ))
+                                ))
                             ) : (
                               <div className="text-center text-slate-500 py-2">
-                                Aucune salle disponible pour ce département à cette date et heure
+                                Aucune salle disponible pour ce département à
+                                cette date et heure
                               </div>
                             )}
                           </div>
@@ -1585,7 +1601,7 @@ const ExamForm = ({
                       <div>
                         <h4 className="text-sm font-medium text-slate-700 mb-2">
                           Département
-                          </h4>
+                        </h4>
                         <Select
                           value={selectedDepartment}
                           onValueChange={setSelectedDepartment}
@@ -1601,7 +1617,7 @@ const ExamForm = ({
                             ))}
                           </SelectContent>
                         </Select>
-                        </div>
+                      </div>
 
                       {selectedDepartment && (
                         <div className="mt-4">
@@ -1654,7 +1670,7 @@ const ExamForm = ({
                           )}
                         </div>
                       )}
-                      </div>
+                    </div>
                   </FormItem>
                 )}
               />
@@ -1672,11 +1688,11 @@ const ExamForm = ({
                     {/* Superviseurs List - Only show if not only classrooms selected */}
                     {(!selectedClassroomType ||
                       selectedClassroomType === "amphi") && (
-                    <div>
+                      <div>
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-sm font-medium text-slate-700">
                             Superviseur
-                      </h4>
+                          </h4>
                           <Button
                             type="button"
                             variant="ghost"
@@ -1689,57 +1705,57 @@ const ExamForm = ({
                               ? "Masquer la liste des superviseurs"
                               : "Afficher tous les superviseurs"}
                           </Button>
-                            </div>
-                        
+                        </div>
+
                         {showSuperviseursList && (
                           <>
                             {loadingSupervisors ? (
-                            <div className="text-center text-slate-500 py-2">
+                              <div className="text-center text-slate-500 py-2">
                                 Chargement des superviseurs...
-                            </div>
+                              </div>
                             ) : supervisorsByDepartment.length > 0 ? (
-                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                              <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
                                 {supervisorsByDepartment.map((supervisor) => (
-                                <div
+                                  <div
                                     key={supervisor.id}
-                                  className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value.includes(
+                                    className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value.includes(
                                           supervisor.id
-                                      )}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          field.onChange([
-                                            ...field.value,
+                                        )}
+                                        onCheckedChange={(checked) => {
+                                          if (checked) {
+                                            field.onChange([
+                                              ...field.value,
                                               supervisor.id,
-                                          ]);
-                                        } else {
-                                          field.onChange(
-                                            field.value.filter(
+                                            ]);
+                                          } else {
+                                            field.onChange(
+                                              field.value.filter(
                                                 (id) => id !== supervisor.id
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <label className="text-sm leading-none cursor-pointer flex-1">
+                                              )
+                                            );
+                                          }
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <label className="text-sm leading-none cursor-pointer flex-1">
                                       {supervisor.prenom} {supervisor.nom} -{" "}
                                       {supervisor.poste}
-                                  </label>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="text-center text-slate-500 py-2">
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-center text-slate-500 py-2">
                                 Aucun superviseur disponible
-                            </div>
-                          )}
+                              </div>
+                            )}
                           </>
-                      )}
-                    </div>
+                        )}
+                      </div>
                     )}
                   </FormItem>
                 )}
@@ -1747,7 +1763,8 @@ const ExamForm = ({
             </div>
 
             {/* Selected Professors and Supervisors Section */}
-            {(form.getValues("professors")?.length > 0 || form.getValues("supervisors")?.length > 0) && (
+            {(form.getValues("professors")?.length > 0 ||
+              form.getValues("supervisors")?.length > 0) && (
               <div className="mt-6 pt-4 border-t border-slate-200">
                 <h4 className="text-sm font-medium text-slate-700 mb-3">
                   Personnel sélectionné
@@ -1773,7 +1790,8 @@ const ExamForm = ({
                             <div className="flex items-center gap-2">
                               <Users className="h-4 w-4 text-slate-500" />
                               <span className="text-sm">
-                                {professor.prenom} {professor.nom} - {professor.poste}
+                                {professor.prenom} {professor.nom} -{" "}
+                                {professor.poste}
                               </span>
                             </div>
                             <Button
@@ -1782,10 +1800,13 @@ const ExamForm = ({
                               size="sm"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => {
-                                const currentProfessors = form.getValues("professors");
+                                const currentProfessors =
+                                  form.getValues("professors");
                                 form.setValue(
                                   "professors",
-                                  currentProfessors.filter((id) => id !== professorId)
+                                  currentProfessors.filter(
+                                    (id) => id !== professorId
+                                  )
                                 );
                               }}
                             >
@@ -1817,7 +1838,8 @@ const ExamForm = ({
                             <div className="flex items-center gap-2">
                               <Users className="h-4 w-4 text-slate-500" />
                               <span className="text-sm">
-                                {supervisor.prenom} {supervisor.nom} - {supervisor.poste}
+                                {supervisor.prenom} {supervisor.nom} -{" "}
+                                {supervisor.poste}
                               </span>
                             </div>
                             <Button
@@ -1826,10 +1848,13 @@ const ExamForm = ({
                               size="sm"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => {
-                                const currentSupervisors = form.getValues("supervisors");
+                                const currentSupervisors =
+                                  form.getValues("supervisors");
                                 form.setValue(
                                   "supervisors",
-                                  currentSupervisors.filter((id) => id !== supervisorId)
+                                  currentSupervisors.filter(
+                                    (id) => id !== supervisorId
+                                  )
                                 );
                               }}
                             >
@@ -1863,7 +1888,7 @@ const ExamForm = ({
                 type="button"
                 onClick={handleSendInvitations}
                 disabled={sendingInvitations}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {sendingInvitations ? (
                   <div className="flex items-center gap-2">
