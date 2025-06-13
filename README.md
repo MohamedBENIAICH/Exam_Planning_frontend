@@ -1,6 +1,6 @@
 # FST Digital Frontend
 
-## Une interface utilisateur intuitive pour la gestion des examens universitaires.
+## Une interface utilisateur intuitive pour la gestion des examens et concours universitaires.
 
 Ce projet est l'interface utilisateur (frontend) de l'application FST Digital, développée avec React et Vite. Il permet aux utilisateurs d'interagir avec l'API backend pour la planification, l'organisation et le suivi des examens.
 
@@ -80,9 +80,11 @@ Exam_Planning_frontend/
 │   ├── components/               # Composants React réutilisables
 │   │   ├── Exams/                # Composants spécifiques aux examens
 │   │   └── Layout/               # Composants de mise en page
+|   |    └── Concours/             # Composants spécifiques aux examens
+|    |    └── etc..../              # Composants spécifiques aux autres pages (professeurs, salles, superviseur,modules....)
 │   ├── hooks/                    # Hooks React personnalisés
 │   ├── lib/                      # Bibliothèques ou modules spécifiques
-│   ├── pages/                    # Composants représentant les pages de l'application
+│   ├── pages/                    # Composants représentant les pages de l'application (Examens,Classrooms,superviseurs,professeurs,concours etc....)
 │   └── utils/                    # Fonctions utilitaires et helpers
 ├── index.html                    # Point d'entrée HTML
 ├── package.json                  # Dépendances et scripts npm
