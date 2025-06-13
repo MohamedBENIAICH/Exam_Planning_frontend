@@ -10,29 +10,34 @@ import {
   User,
   Clock,
   History,
-} from "lucide-react"; // Ajoutez Clock et History
+  Settings,
+  ChevronDown,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fr } from "@/translations/fr";
 
-const navItems = [
+const mainNavItems = [
   { path: "/", label: fr.navigation.dashboard, icon: Home },
-  //{ path: "/students", label: fr.navigation.students, icon: Users },
-  { path: "/classrooms", label: fr.navigation.classrooms, icon: Building },
   { path: "/exams", label: fr.navigation.exams, icon: Calendar },
   { path: "/past-exams", label: fr.navigation.pastExams, icon: History },
   { path: "/upcoming-exams", label: fr.navigation.upcomingExams, icon: Clock },
-  { path: "/professeurs", label: fr.navigation.professeurs, icon: User2 }, // Utilisez User2 pour Professeurs
-  { path: "/superviseurs", label: fr.navigation.superviseurs, icon: User }, // Utilisez User2 pour Superviseurs
-  { path: "/formations", label: fr.navigation.formations, icon: User },
-  { path: "/filieres", label: fr.navigation.filieres, icon: User },
-  { path: "/modules", label: fr.navigation.modules, icon: User },
   { path: "/concours", label: fr.navigation.concours, icon: Calendar },
+];
+
+const settingsNavItems = [
+  { path: "/classrooms", label: fr.navigation.classrooms, icon: Building },
+  { path: "/professeurs", label: fr.navigation.professeurs, icon: User2 },
+  { path: "/superviseurs", label: fr.navigation.superviseurs, icon: User },
+  { path: "/formations", label: fr.navigation.formations, icon: Users },
+  { path: "/filieres", label: fr.navigation.filieres, icon: Users },
+  { path: "/modules", label: fr.navigation.modules, icon: Users },
 ];
 
 const Sidebar = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = React.useState(false);
+  const [showSettings, setShowSettings] = React.useState(false);
 
   return (
     <div
@@ -59,7 +64,7 @@ const Sidebar = () => {
 
       <nav className="flex-1 py-4">
         <ul className="space-y-2 px-2">
-          {navItems.map((item) => (
+          {mainNavItems.map((item) => (
             <li key={item.path}>
               <Link
                 to={item.path}
@@ -77,6 +82,53 @@ const Sidebar = () => {
               </Link>
             </li>
           ))}
+
+          <li key="settings">
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={cn(
+                "flex items-center w-full px-3 py-2 rounded-md text-sm font-medium transition-colors justify-between",
+                showSettings
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+              )}
+            >
+              <div className="flex items-center">
+                <Settings
+                  className={cn("h-5 w-5", collapsed ? "mx-auto" : "mr-3")}
+                />
+                {!collapsed && <span>Paramètres</span>}
+              </div>
+              {!collapsed && (
+                <ChevronDown
+                  className={cn(
+                    "h-4 w-4 transition-transform",
+                    showSettings ? "rotate-180" : "rotate-0"
+                  )}
+                />
+              )}
+            </button>
+            {showSettings && !collapsed && (
+              <ul className="ml-4 mt-2 space-y-1">
+                {settingsNavItems.map((item) => (
+                  <li key={item.path}>
+                    <Link
+                      to={item.path}
+                      className={cn(
+                        "flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                        location.pathname === item.path
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <item.icon className="h-4 w-4 mr-3" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
         </ul>
       </nav>
     </div>
