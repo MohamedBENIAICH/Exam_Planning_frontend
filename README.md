@@ -98,10 +98,8 @@ Exam_Planning_frontend/
   - Ouvrez les outils de développement de votre navigateur (généralement F12) et vérifiez la console pour des erreurs JavaScript ou des problèmes de connexion réseau (par exemple, échec de la connexion à l'API backend).
   - Assurez-vous que le backend est bien démarré et accessible depuis le frontend (généralement sur `http://localhost:8000`).
 
-## Contribution
+## Contributeurs et Contribution
+*   [MohamedBENIAICH](https://github.com/MohamedBENIAICH)
+*   [DiarraIbra](https://github.com/DiarraIbra)
 
 N'hésitez pas à contribuer à ce projet en ouvrant des issues ou des pull requests. Veuillez suivre les conventions de codage React.
-
-## Licence
-
-Ce projet est sous licence MIT.
