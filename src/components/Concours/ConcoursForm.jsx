@@ -108,7 +108,9 @@ const ConcoursForm = ({
           heure_debut: concour.heure_debut || "09:00",
           heure_fin: concour.heure_fin || "11:00",
           locaux: concour.locaux
-            ? concour.locaux.map((id) => id.toString())
+            ? typeof concour.locaux === "string"
+              ? concour.locaux.split(", ").map((item) => item.trim())
+              : concour.locaux
             : [],
           type_epreuve: concour.type_epreuve || "",
           candidats: concour.candidats
@@ -121,10 +123,10 @@ const ConcoursForm = ({
               }))
             : [],
           professeurs: concour.professeurs
-            ? concour.professeurs.map((id) => id.toString())
+            ? concour.professeurs.map((p) => p.id.toString())
             : [],
           superviseurs: concour.superviseurs
-            ? concour.superviseurs.map((id) => id.toString())
+            ? concour.superviseurs.map((s) => s.id.toString())
             : [],
         }
       : {

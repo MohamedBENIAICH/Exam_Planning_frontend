@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import {
   Plus,
-  Calendar as CalendarIcon,
+  CalendarIcon,
   Users,
   Building,
   Info,
@@ -141,6 +141,7 @@ const ConcourScheduling = () => {
   }, []);
 
   const handleAddEditConcour = async (concour) => {
+    console.log("handleAddEditConcour called. editingConcour:", editingConcour);
     try {
       setLoading(true);
       if (editingConcour) {
@@ -160,6 +161,8 @@ const ConcourScheduling = () => {
             c.id === editingConcour.id ? { ...concour, id: c.id } : c
           )
         );
+        setEditingConcour(null);
+        setIsDialogOpen(false);
       } else {
         // Create concours
         const response = await fetch("http://127.0.0.1:8000/api/concours", {
@@ -179,6 +182,8 @@ const ConcourScheduling = () => {
             ...prev,
           ].slice(0, 5)
         );
+        setEditingConcour(null);
+        setIsDialogOpen(false);
       }
     } catch (error) {
       toast({
@@ -187,13 +192,12 @@ const ConcourScheduling = () => {
         variant: "destructive",
       });
     } finally {
-      setEditingConcour(null);
-      setIsDialogOpen(false);
       setLoading(false);
     }
   };
 
   const handleEditConcour = (concour) => {
+    console.log("handleEditConcour called with concour:", concour);
     setEditingConcour(concour);
     setIsDialogOpen(true);
   };
@@ -282,6 +286,41 @@ const ConcourScheduling = () => {
     return candidat ? `${candidat.prenom} ${candidat.nom}` : 'Candidat inconnu';
   };
 
+  // Function to handle report download
+  const handleDownloadReport = async (concourId) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/concours/${concourId}/download-report`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/pdf",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Erreur lors de la récupération du compte rendu");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Compte_Rendu_${concourId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Compte Rendu",
+        description: "Le compte rendu a été téléchargé avec succès",
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible de télécharger le compte rendu",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen flex">
       <Sidebar />
@@ -294,7 +333,6 @@ const ConcourScheduling = () => {
               open={isDialogOpen}
               onOpenChange={(open) => {
                 setIsDialogOpen(open);
-                if (!open) setEditingConcour(null);
               }}
             >
               <DialogTrigger asChild>
@@ -390,7 +428,7 @@ const ConcourScheduling = () => {
                             </p>
                             <p className="text-sm">
                               {Array.isArray(concour.superviseurs) && concour.superviseurs.length > 0
-                                ? concour.superviseurs.map(id => getSuperviseurName(id)).join(", ")
+                                ? concour.superviseurs.map(s => `${s.prenom} ${s.nom}`).join(", ")
                                 : "Aucun"}
                             </p>
                           </div>
@@ -401,7 +439,7 @@ const ConcourScheduling = () => {
                             </p>
                             <p className="text-sm">
                               {Array.isArray(concour.professeurs) && concour.professeurs.length > 0
-                                ? concour.professeurs.map(id => getProfesseurName(id)).join(", ")
+                                ? concour.professeurs.map(p => `${p.prenom} ${p.nom}`).join(", ")
                                 : "Aucun"}
                             </p>
                           </div>
@@ -463,6 +501,15 @@ const ConcourScheduling = () => {
                             ? "Envoi..." 
                             : "Envoyer convocations candidats"
                           }
+                        </Button>
+                        {/* Bouton de téléchargement du compte rendu */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadReport(concour.id)}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Compte Rendu
                         </Button>
                       </CardFooter>
                     </Card>
@@ -544,24 +591,16 @@ const ConcourScheduling = () => {
                   selectedConcour.candidats.length > 0 ? (
                     selectedConcour.candidats.map((c) => (
                       <li key={c.id || c}>
-                        {typeof c === 'object' 
-                          ? `${c.prenom} ${c.nom} (${c.email})`
-                          : getCandidatName(c)
-                        }
+                        {getCandidatName(c)}
                       </li>
                     ))
                   ) : (
-                    <li>Aucun candidat</li>
+                    <li>Aucun</li>
                   )}
                 </ul>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedConcour(null)}>
-              Fermer
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
