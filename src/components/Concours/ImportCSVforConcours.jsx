@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import PropTypes from "prop-types";
 
-const REQUIRED_HEADERS = ["cne", "cin", "nom", "prénom", "email"];
+const REQUIRED_HEADERS = ["cne", "cin", "nom", "prenom", "email"];
 
 const ImportCSVforConcours = ({ onImportComplete }) => {
   const [file, setFile] = useState(null);
@@ -72,7 +72,7 @@ const ImportCSVforConcours = ({ onImportComplete }) => {
         csvHeaders.forEach((header, i) => {
           if (REQUIRED_HEADERS.includes(header)) {
             if (header === "nom") candidat.nom = values[i] || "";
-            else if (header === "prénom") candidat.prenom = values[i] || "";
+            else if (header === "prenom") candidat.prenom = values[i] || "";
             else if (header === "cne") candidat.CNE = values[i] || "";
             else if (header === "cin") candidat.CIN = values[i] || "";
             else if (header === "email") candidat.email = values[i] || "";

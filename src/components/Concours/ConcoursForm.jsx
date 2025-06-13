@@ -44,8 +44,20 @@ const formSchema = z.object({
   heure_debut: z.string().min(1, "L'heure de début est requise"),
   heure_fin: z.string().min(1, "L'heure de fin est requise"),
   locaux: z.array(z.string()).min(1, "Au moins un local est requis"),
-  type_epreuve: z.string().min(1, "Le type d'épreuve est requis"),
-  candidats: z.array(z.string()).min(1, "Au moins un candidat est requis"),
+  type_epreuve: z.enum(["écrit", "oral"], {
+    required_error: "Le type d'épreuve est requis",
+  }),
+  candidats: z
+    .array(
+      z.object({
+        CNE: z.string(),
+        CIN: z.string(),
+        nom: z.string(),
+        prenom: z.string(),
+        email: z.string().email(),
+      })
+    )
+    .min(1, "Au moins un candidat est requis"),
   professeurs: z.array(z.string()).optional(),
   superviseurs: z.array(z.string()).optional(),
 });
@@ -57,7 +69,7 @@ const ConcoursForm = ({
   availableProfesseurs = [],
   availableSuperviseurs = [],
   availableCandidats = [],
-  typeEpreuves = ["écrit", "oral", "Pratique"],
+  typeEpreuves = ["écrit", "oral"],
 }) => {
   console.log("ConcoursForm mounted");
   const { toast } = useToast();
@@ -100,7 +112,13 @@ const ConcoursForm = ({
             : [],
           type_epreuve: concour.type_epreuve || "",
           candidats: concour.candidats
-            ? concour.candidats.map((id) => id.toString())
+            ? concour.candidats.map((c) => ({
+                CNE: c.CNE,
+                CIN: c.CIN,
+                nom: c.nom,
+                prenom: c.prenom,
+                email: c.email,
+              }))
             : [],
           professeurs: concour.professeurs
             ? concour.professeurs.map((id) => id.toString())
@@ -126,16 +144,38 @@ const ConcoursForm = ({
   // Handle CSV import for candidats
   const handleImportComplete = (candidatsArray) => {
     setImportedCandidats(candidatsArray);
-    const ids = candidatsArray.map((c) => c.id?.toString());
-    setSelectedCandidats(ids);
-    form.setValue("candidats", ids);
+    form.setValue(
+      "candidats",
+      candidatsArray.map((c) => ({
+        CNE: c.CNE,
+        CIN: c.CIN,
+        nom: c.nom,
+        prenom: c.prenom,
+        email: c.email,
+      }))
+    );
     setShowImportCSV(false);
   };
 
   // Keep form candidats in sync with selectedCandidats
   useEffect(() => {
-    form.setValue("candidats", selectedCandidats);
-  }, [selectedCandidats]);
+    if (
+      selectedCandidats.length > 0 &&
+      typeof selectedCandidats[0] === "object" &&
+      !form.getValues("candidats").length
+    ) {
+      form.setValue(
+        "candidats",
+        selectedCandidats.map((c) => ({
+          CNE: c.CNE,
+          CIN: c.CIN,
+          nom: c.nom,
+          prenom: c.prenom,
+          email: c.email,
+        }))
+      );
+    }
+  }, [selectedCandidats, form]);
 
   // Load departments
   useEffect(() => {
@@ -337,7 +377,7 @@ const ConcoursForm = ({
         heure_fin: values.heure_fin,
         locaux: locauxString,
         type_epreuve: values.type_epreuve,
-        candidats: values.candidats.map(Number),
+        candidats: values.candidats,
         superviseurs: values.superviseurs
           ? values.superviseurs.map(Number)
           : [],
@@ -376,7 +416,7 @@ const ConcoursForm = ({
   };
 
   // Debug: show form errors
-  console.log("Form errors:", form.formState.errors);
+  console.log("Form errors:", JSON.stringify(form.formState.errors, null, 2));
 
   return (
     <Form {...form}>

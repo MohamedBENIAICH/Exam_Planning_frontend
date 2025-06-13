@@ -12,6 +12,7 @@ import {
   ChevronUp,
   UserIcon,
   Download,
+  Mail,
 } from "lucide-react";
 import Header from "@/components/Layout/Header";
 import Sidebar from "@/components/Layout/Sidebar";
@@ -46,31 +47,77 @@ const ConcourScheduling = () => {
   const [selectedConcour, setSelectedConcour] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [concourToDelete, setConcourToDelete] = useState(null);
+  const [sendingConvocations, setSendingConvocations] = useState({});
+  
+  // Données dynamiques
+  const [availableLocaux, setAvailableLocaux] = useState([]);
+  const [availableProfesseurs, setAvailableProfesseurs] = useState([]);
+  const [availableSuperviseurs, setAvailableSuperviseurs] = useState([]);
+  const [availableCandidats, setAvailableCandidats] = useState([]);
+  const [loadingData, setLoadingData] = useState({
+    locaux: false,
+    professeurs: false,
+    superviseurs: false,
+    candidats: false,
+  });
+  
   const { toast } = useToast();
 
-  // Dummy data for availableLocaux, Professeurs, Superviseurs, Candidats
-  // Replace with your API calls if needed
-  const availableLocaux = [
-    { id: "1", nom_du_local: "Salle A" },
-    { id: "2", nom_du_local: "Salle B" },
-  ];
-  const availableProfesseurs = [
-    { id: "1", nom: "Dupont", prenom: "Marie" },
-    { id: "2", nom: "Martin", prenom: "Jean" },
-  ];
-  const availableSuperviseurs = [
-    { id: "1", nom: "Durand", prenom: "Paul" },
-    { id: "2", nom: "Petit", prenom: "Lucie" },
-  ];
-  const availableCandidats = [
-    { id: "1", nom: "Ben Ali", prenom: "Sara", email: "sara@exemple.com" },
-    {
-      id: "2",
-      nom: "El Amrani",
-      prenom: "Youssef",
-      email: "youssef@exemple.com",
-    },
-  ];
+  // Charger les données dynamiques
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        // Charger les locaux
+        setLoadingData(prev => ({ ...prev, locaux: true }));
+        const locauxResponse = await fetch("http://127.0.0.1:8000/api/classrooms");
+        const locauxData = await locauxResponse.json();
+        if (locauxData.status === "success") {
+          setAvailableLocaux(locauxData.data);
+        }
+
+        // Charger les professeurs
+        setLoadingData(prev => ({ ...prev, professeurs: true }));
+        const professeursResponse = await fetch("http://127.0.0.1:8000/api/professeurs");
+        const professeursData = await professeursResponse.json();
+        if (professeursData.status === "success") {
+          setAvailableProfesseurs(professeursData.data);
+        }
+
+        // Charger les superviseurs
+        setLoadingData(prev => ({ ...prev, superviseurs: true }));
+        const superviseursResponse = await fetch("http://127.0.0.1:8000/api/superviseurs");
+        const superviseursData = await superviseursResponse.json();
+        if (superviseursData.status === "success") {
+          setAvailableSuperviseurs(superviseursData.data);
+        }
+
+        // Charger les candidats
+        setLoadingData(prev => ({ ...prev, candidats: true }));
+        const candidatsResponse = await fetch("http://127.0.0.1:8000/api/candidats");
+        const candidatsData = await candidatsResponse.json();
+        if (candidatsData.status === "success") {
+          setAvailableCandidats(candidatsData.data);
+        }
+
+      } catch (error) {
+        console.error("Erreur lors du chargement des données:", error);
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger certaines données",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingData({
+          locaux: false,
+          professeurs: false,
+          superviseurs: false,
+          candidats: false,
+        });
+      }
+    };
+
+    fetchAllData();
+  }, [toast]);
 
   useEffect(() => {
     const fetchConcours = async () => {
@@ -122,10 +169,13 @@ const ConcourScheduling = () => {
         });
         if (!response.ok) throw new Error("Erreur lors de l'ajout");
         const data = await response.json();
-        toast({ title: "Succès", description: "Concours ajouté !" });
+        toast({ 
+          title: "Succès", 
+          description: "Concours créé ! Les convocations ont été envoyées automatiquement aux surveillants et professeurs." 
+        });
         setConcours((prev) =>
           [
-            { ...concour, id: data.data?.id || Date.now().toString() },
+            { ...concour, id: data.id || Date.now().toString() },
             ...prev,
           ].slice(0, 5)
         );
@@ -173,6 +223,63 @@ const ConcourScheduling = () => {
       setConcourToDelete(null);
       setLoading(false);
     }
+  };
+
+  const handleSendConvocations = async (concourId) => {
+    try {
+      setSendingConvocations(prev => ({ ...prev, [concourId]: true }));
+      
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/concours/${concourId}/send-convocations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur lors de l'envoi des convocations");
+      }
+
+      toast({
+        title: "Convocations envoyées",
+        description: `Les convocations ont été envoyées avec succès à ${data.candidats_count} candidat(s).`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'envoyer les convocations",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingConvocations(prev => ({ ...prev, [concourId]: false }));
+    }
+  };
+
+  // Fonction pour obtenir le nom d'un local par son ID
+  const getLocalName = (localId) => {
+    const local = availableLocaux.find(l => l.id.toString() === localId.toString());
+    return local ? local.nom_du_local : 'Local inconnu';
+  };
+
+  // Fonction pour obtenir le nom d'un professeur par son ID
+  const getProfesseurName = (professeurId) => {
+    const professeur = availableProfesseurs.find(p => p.id.toString() === professeurId.toString());
+    return professeur ? `${professeur.prenom} ${professeur.nom}` : 'Professeur inconnu';
+  };
+
+  // Fonction pour obtenir le nom d'un superviseur par son ID
+  const getSuperviseurName = (superviseurId) => {
+    const superviseur = availableSuperviseurs.find(s => s.id.toString() === superviseurId.toString());
+    return superviseur ? `${superviseur.prenom} ${superviseur.nom}` : 'Superviseur inconnu';
+  };
+
+  // Fonction pour obtenir le nom d'un candidat par son ID
+  const getCandidatName = (candidatId) => {
+    const candidat = availableCandidats.find(c => c.id.toString() === candidatId.toString());
+    return candidat ? `${candidat.prenom} ${candidat.nom}` : 'Candidat inconnu';
   };
 
   return (
@@ -270,7 +377,7 @@ const ConcourScheduling = () => {
                             </p>
                             <p className="text-sm">
                               {Array.isArray(concour.locaux)
-                                ? concour.locaux.join(", ")
+                                ? concour.locaux.map(id => getLocalName(id)).join(", ")
                                 : concour.locaux}
                             </p>
                           </div>
@@ -282,9 +389,9 @@ const ConcourScheduling = () => {
                               Superviseurs
                             </p>
                             <p className="text-sm">
-                              {Array.isArray(concour.superviseurs)
-                                ? concour.superviseurs.join(", ")
-                                : concour.superviseurs || "Aucun"}
+                              {Array.isArray(concour.superviseurs) && concour.superviseurs.length > 0
+                                ? concour.superviseurs.map(id => getSuperviseurName(id)).join(", ")
+                                : "Aucun"}
                             </p>
                           </div>
                           <div>
@@ -293,9 +400,9 @@ const ConcourScheduling = () => {
                               Professeurs
                             </p>
                             <p className="text-sm">
-                              {Array.isArray(concour.professeurs)
-                                ? concour.professeurs.join(", ")
-                                : concour.professeurs || "Aucun"}
+                              {Array.isArray(concour.professeurs) && concour.professeurs.length > 0
+                                ? concour.professeurs.map(id => getProfesseurName(id)).join(", ")
+                                : "Aucun"}
                             </p>
                           </div>
                         </div>
@@ -319,7 +426,7 @@ const ConcourScheduling = () => {
                           <p className="text-sm">{concour.type_epreuve}</p>
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-end gap-2">
+                      <CardFooter className="flex justify-end gap-2 flex-wrap">
                         <Button
                           variant="outline"
                           size="sm"
@@ -344,6 +451,18 @@ const ConcourScheduling = () => {
                         >
                           <Info className="h-4 w-4 mr-2" />
                           Détail
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleSendConvocations(concour.id)}
+                          disabled={sendingConvocations[concour.id]}
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          {sendingConvocations[concour.id] 
+                            ? "Envoi..." 
+                            : "Envoyer convocations candidats"
+                          }
                         </Button>
                       </CardFooter>
                     </Card>
@@ -382,7 +501,7 @@ const ConcourScheduling = () => {
               <div>
                 <strong>Locaux:</strong>{" "}
                 {Array.isArray(selectedConcour.locaux)
-                  ? selectedConcour.locaux.join(", ")
+                  ? selectedConcour.locaux.map(id => getLocalName(id)).join(", ")
                   : selectedConcour.locaux}
               </div>
               <div>
@@ -394,8 +513,8 @@ const ConcourScheduling = () => {
                   {Array.isArray(selectedConcour.superviseurs) &&
                   selectedConcour.superviseurs.length > 0 ? (
                     selectedConcour.superviseurs.map((s) => (
-                      <li key={s.id}>
-                        {s.prenom} {s.nom} {s.poste ? `(${s.poste})` : ""}
+                      <li key={s.id || s}>
+                        {typeof s === 'object' ? `${s.prenom} ${s.nom}` : getSuperviseurName(s)}
                       </li>
                     ))
                   ) : (
@@ -409,9 +528,8 @@ const ConcourScheduling = () => {
                   {Array.isArray(selectedConcour.professeurs) &&
                   selectedConcour.professeurs.length > 0 ? (
                     selectedConcour.professeurs.map((p) => (
-                      <li key={p.id}>
-                        {p.prenom} {p.nom}{" "}
-                        {p.departement ? `(${p.departement})` : ""}
+                      <li key={p.id || p}>
+                        {typeof p === 'object' ? `${p.prenom} ${p.nom}` : getProfesseurName(p)}
                       </li>
                     ))
                   ) : (
@@ -424,15 +542,14 @@ const ConcourScheduling = () => {
                 <ul className="list-disc ml-6">
                   {Array.isArray(selectedConcour.candidats) &&
                   selectedConcour.candidats.length > 0 ? (
-                    selectedConcour.candidats.map((c) =>
-                      typeof c === "string" ? (
-                        <li key={c}>{c}</li>
-                      ) : (
-                        <li key={c.id}>
-                          {c.prenom} {c.nom} ({c.email})
-                        </li>
-                      )
-                    )
+                    selectedConcour.candidats.map((c) => (
+                      <li key={c.id || c}>
+                        {typeof c === 'object' 
+                          ? `${c.prenom} ${c.nom} (${c.email})`
+                          : getCandidatName(c)
+                        }
+                      </li>
+                    ))
                   ) : (
                     <li>Aucun candidat</li>
                   )}
