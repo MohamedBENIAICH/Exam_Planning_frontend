@@ -1,63 +1,107 @@
-# Exam Scheduler
+# FST Digital Frontend
 
-Un système de gestion des examens développé avec React, TypeScript et shadcn-ui.
+## Une interface utilisateur intuitive pour la gestion des examens universitaires.
+
+Ce projet est l'interface utilisateur (frontend) de l'application FST Digital, développée avec React et Vite. Il permet aux utilisateurs d'interagir avec l'API backend pour la planification, l'organisation et le suivi des examens.
+
+## Technologies Utilisées
+
+- **Frontend :** React (JavaScript)
+- **Build Tool :** Vite
+- **Bibliothèque UI :** Material-UI (MUI)
+- **Routage :** React Router DOM
+
+## Environnements de Développement Recommandés
+
+- **Frontend :** Visual Studio Code
 
 ## Prérequis
 
-Avant de commencer, assurez-vous d'avoir installé :
+Assurez-vous de disposer d'une connexion Internet et d'avoir installé les éléments suivants sur votre système :
 
-- Node.js (version 18 ou supérieure)
-- npm (généralement installé avec Node.js)
-- Git
+- **Node.js :** Version LTS (Long Term Support) recommandée. Inclut npm (Node Package Manager).
+- **Git :** Pour cloner le dépôt.
 
-## Installation
+## Instructions d'Installation
 
-1. Clonez le dépôt :
+### 1. Cloner le Dépôt
+
+Ouvrez un terminal ou une invite de commande, naviguez jusqu'au répertoire où vous souhaitez cloner le projet, et exécutez la commande suivante :
 
 ```bash
 git clone https://github.com/MohamedBENIAICH/Exam_Planning_frontend.git
+cd Exam_Planning_frontend
 ```
 
-2. Installez les dépendances :
+### 2. Configuration du Frontend (React + Vite)
 
-```bash
-npm install
-```
+1.  **Installer les Dépendances :**
+    Dans le répertoire `Exam_Planning_frontend`, ouvrez un terminal intégré et exécutez la commande suivante pour installer toutes les dépendances du projet frontend :
 
-## Développement
+    ```bash
+    npm install
+    # ou si vous utilisez Yarn
+    # yarn install
+    ```
 
-Pour lancer le serveur de développement :
+2.  **Configurer l'API Backend :**
+    Le frontend doit savoir où se trouve l'API backend. Par défaut, il est configuré pour se connecter à `http://localhost:8000`. Si votre backend s'exécute sur une adresse ou un port différent, vous devrez ajuster la configuration dans le code source. Recherchez les appels `fetch` ou `axios` et ajustez l'URL de base de l'API en conséquence.
+
+## Démarrage de l'Application
+
+Pour démarrer l'application en mode développement :
 
 ```bash
 npm run dev
+# ou si vous utilisez Yarn
+# yarn dev
 ```
 
-L'application sera accessible à l'adresse : `http://localhost:5173`
+L'application sera généralement accessible à l'adresse : `http://localhost:5173` (le port peut varier, vérifiez la sortie du terminal).
 
-## Technologies utilisées
+## Construction pour la Production
 
-- [React](https://reactjs.org/) - Bibliothèque JavaScript pour construire des interfaces utilisateur
-- [TypeScript](https://www.typescriptlang.org/) - Superset JavaScript typé
-- [Vite](https://vitejs.dev/) - Outil de build moderne
-- [shadcn-ui](https://ui.shadcn.com/) - Composants UI réutilisables
-- [Tailwind CSS](https://tailwindcss.com/) - Framework CSS utilitaire
+Pour construire l'application pour un déploiement en production :
 
-## Structure du projet
-
-```
-src/
-  ├── components/     # Composants React réutilisables
-  ├── pages/         # Pages de l'application
-  ├── hooks/         # Custom React hooks
-  ├── utils/         # Fonctions utilitaires
-  ├── types/         # Types TypeScript
-  └── styles/        # Fichiers de style
+```bash
+npm run build
+# ou si vous utilisez Yarn
+# yarn build
 ```
 
-## Scripts disponibles
+Ceci créera un dossier `dist/` contenant les fichiers statiques optimisés pour la production. Vous pouvez ensuite déployer le contenu de ce dossier sur un serveur web statique.
 
-- `npm run dev` - Lance le serveur de développement
-- `npm run build` - Crée une version de production
-- `npm run preview` - Prévisualise la version de production localement
-- `npm run lint` - Vérifie le code avec ESLint
-- `npm run type-check` - Vérifie les types TypeScript
+## Structure du Projet
+
+```
+Exam_Planning_frontend/
+├── public/                       # Fichiers statiques (images, etc.)
+├── src/                          # Code source React
+│   ├── components/               # Composants React réutilisables
+│   │   ├── Exams/                # Composants spécifiques aux examens
+│   │   └── Layout/               # Composants de mise en page
+│   ├── hooks/                    # Hooks React personnalisés
+│   ├── lib/                      # Bibliothèques ou modules spécifiques
+│   ├── pages/                    # Composants représentant les pages de l'application
+│   └── utils/                    # Fonctions utilitaires et helpers
+├── index.html                    # Point d'entrée HTML
+├── package.json                  # Dépendances et scripts npm
+├── vite.config.js                # Configuration de Vite
+└── README.md                     # Ce fichier
+```
+
+## Dépannage
+
+- **Le Frontend ne démarre pas ?**
+  - Assurez-vous d'avoir exécuté `npm install` (ou `yarn install`) dans le dossier `Exam_Planning_frontend` pour installer toutes les dépendances.
+  - Vérifiez qu'aucune erreur ne s'affiche dans la console du terminal où `npm run dev` est exécuté.
+  - Ouvrez les outils de développement de votre navigateur (généralement F12) et vérifiez la console pour des erreurs JavaScript ou des problèmes de connexion réseau (par exemple, échec de la connexion à l'API backend).
+  - Assurez-vous que le backend est bien démarré et accessible depuis le frontend (généralement sur `http://localhost:8000`).
+
+## Contribution
+
+N'hésitez pas à contribuer à ce projet en ouvrant des issues ou des pull requests. Veuillez suivre les conventions de codage React.
+
+## Licence
+
+Ce projet est sous licence MIT.
