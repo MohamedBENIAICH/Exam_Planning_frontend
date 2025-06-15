@@ -153,27 +153,24 @@ const ExamScheduling = () => {
 
   const formatDate = (dateString: string | undefined): string => {
     if (!dateString) {
-      console.log("No date string provided");
-      return "Invalid Date";
+      return "Date non spécifiée";
     }
 
     try {
-      // Parse the ISO date string
       const date = new Date(dateString);
-
-      // Check if the date is valid
       if (isNaN(date.getTime())) {
-        console.log("Invalid date string:", dateString);
-        return "Invalid Date";
+        return "Date invalide";
       }
 
-      // Format the date as YYYY-MM-DD
-      const formattedDate = format(date, "yyyy-MM-dd");
-      console.log("Formatted date:", formattedDate);
+      const formattedDate = date.toLocaleDateString("fr-FR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
+
       return formattedDate;
     } catch (error) {
-      console.error("Error formatting date:", error);
-      return "Invalid Date";
+      return "Date invalide";
     }
   };
 
@@ -190,33 +187,13 @@ const ExamScheduling = () => {
         const data: ApiResponse = await response.json();
 
         if (data.status === "success") {
-          console.log("Raw API response for exams:", data.data);
-
           const formattedExams = data.data.slice(0, 5).map((apiExam) => {
-            console.log("Processing exam:", {
-              id: apiExam.id,
-              module_id: apiExam.module_id,
-              moduleIdType: typeof apiExam.module_id,
-              locaux: apiExam.locaux,
-              type: typeof apiExam.locaux,
-            });
-
             const classrooms = apiExam.locaux
               ? apiExam.locaux.split(",").map((local) => local.trim())
               : [];
 
-            console.log("Formatted classrooms:", {
-              original: apiExam.locaux,
-              split: classrooms,
-            });
-
             // Use module_id from the API response
             const examModuleId = apiExam.module_id;
-            console.log("Module ID for exam:", {
-              id: apiExam.id,
-              moduleId: examModuleId,
-              moduleIdType: typeof examModuleId,
-            });
 
             return {
               id: apiExam.id.toString(),
@@ -248,7 +225,6 @@ const ExamScheduling = () => {
             };
           });
 
-          console.log("Formatted exams with classrooms:", formattedExams);
           setExams(formattedExams);
         } else {
           throw new Error("Failed to fetch exams");
@@ -274,9 +250,6 @@ const ExamScheduling = () => {
       const data = await response.json();
 
       if (data.status === "success" && Array.isArray(data.data)) {
-        console.log(
-          `Fetched ${data.data.length} students for exam ID: ${examId}`
-        );
         setFetchedStudents(data.data);
       } else {
         console.error("Failed to fetch students:", data);
@@ -335,8 +308,6 @@ const ExamScheduling = () => {
   };
 
   const getStudentNames = (studentIds: string[]) => {
-    console.log("Processing student IDs:", studentIds);
-
     // If we have fetched students, use them to display names
     if (fetchedStudents.length > 0) {
       return studentIds.map((id) => {
@@ -350,27 +321,16 @@ const ExamScheduling = () => {
 
     // Fallback to the original logic if we don't have fetched students
     return studentIds.map((id) => {
-      console.log(`Looking for student with ID: ${id} (type: ${typeof id})`);
-
       // Find the student in the importedStudents array
       const student = importedStudents.find((s) => {
-        console.log(
-          `Comparing ${
-            s.id
-          } (type: ${typeof s.id}) with ${id} (type: ${typeof id})`
-        );
         return s.id === id || s.id.toString() === id;
       });
 
       if (student) {
-        console.log(
-          `Found student in importedStudents: ${student.firstName} ${student.lastName}`
-        );
         return `${student.firstName} ${student.lastName}`;
       }
 
       // If we still haven't found the student, try to generate a mock name based on the ID
-      console.log(`No student found with ID: ${id}, generating mock name`);
       return `Student ${id}`;
     });
   };
@@ -382,228 +342,72 @@ const ExamScheduling = () => {
     try {
       // Check if classroomIds is defined and is an array
       if (!classroomIds || !Array.isArray(classroomIds)) {
-        console.warn("No classrooms to update availability for");
         return;
       }
 
-      // Log the raw classroom IDs for debugging
-      console.log("Raw classroom IDs received:", classroomIds);
+      // Convert string IDs to numbers for the API
+      const numericClassroomIds = classroomIds
+        .map((id) => parseInt(id, 10))
+        .filter((id) => !isNaN(id));
 
-      // Filter out any non-numeric IDs and convert to numbers
-      const validClassroomIds = classroomIds
-        .map((id) => {
-          // If id is already a number, use it directly
-          if (typeof id === "number") {
-            return id;
-          }
-          // If id is a string that can be converted to a number, do so
-          const numericId = parseInt(id, 10);
-          if (!isNaN(numericId)) {
-            return numericId;
-          }
-          // If id is a string that can't be converted to a number, try to extract the numeric part
-          const match = id.match(/\d+/);
-          if (match) {
-            return parseInt(match[0], 10);
-          }
-          console.warn(`Could not extract numeric ID from: ${id}`);
-          return null;
-        })
-        .filter((id): id is number => id !== null);
-
-      if (validClassroomIds.length === 0) {
-        console.warn(
-          "No valid classroom IDs to update. Original IDs:",
-          classroomIds
-        );
+      if (numericClassroomIds.length === 0) {
         return;
       }
 
-      console.log(
-        `Starting availability update for ${validClassroomIds.length} classrooms:`,
-        validClassroomIds.map((id) => `Classroom ID: ${id}`),
-        `Setting availability to: ${isAvailable ? "available" : "unavailable"}`
-      );
-
-      const promises = validClassroomIds.map(async (id) => {
-        console.log(
-          `Processing classroom ${id}:`,
-          `Setting availability to ${isAvailable ? "available" : "unavailable"}`
-        );
-
-        const requestBody = {
-          disponible_pour_planification: isAvailable,
-        };
-
+      // Update each classroom's availability
+      for (const classroomId of numericClassroomIds) {
+        try {
         const response = await fetch(
-          `http://localhost:8000/api/classrooms/${id}/disponibilite`,
+            `http://127.0.0.1:8000/api/classrooms/${classroomId}/disponibilite`,
           {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(requestBody),
+              body: JSON.stringify({
+                disponible_pour_planification: isAvailable,
+              }),
           }
         );
 
         if (!response.ok) {
-          const errorData = await response.json();
-          console.error(
-            `Failed to update classroom ${id} availability:`,
-            errorData
-          );
-          throw new Error(
-            `Failed to update classroom ${id} availability: ${
-              errorData.message || "Unknown error"
-            }`
-          );
+            throw new Error(`Failed to update classroom ${classroomId}`);
+          }
+        } catch (error) {
+          console.error(`Error updating classroom ${classroomId}:`, error);
         }
-
-        const responseData = await response.json();
-        console.log(
-          `Successfully updated classroom ${id} availability:`,
-          responseData
-        );
-      });
-
-      await Promise.all(promises);
-      console.log(
-        "Completed availability updates for all classrooms:",
-        validClassroomIds.map((id) => `Classroom ID: ${id}`)
-      );
+      }
     } catch (error) {
       console.error("Error updating classroom availability:", error);
-      throw error;
     }
   };
 
   const handleAddEditExam = async (exam: Exam) => {
     try {
-      // Convert locaux to an array if it's a string
-      const classroomIds = exam.data?.locaux
-        ? Array.isArray(exam.data.locaux)
-          ? exam.data.locaux
-          : exam.data.locaux.split(",").map((id) => id.trim())
-        : [];
+      setLoading(true);
 
-      console.log("Full exam data structure:", {
-        exam,
-        classrooms: classroomIds,
-        classroomDetails: classroomIds.map((id) => ({
-          id,
-          type: typeof id,
-          isNumeric: !isNaN(Number(id)),
-          rawValue: id,
-        })),
-        examKeys: Object.keys(exam),
-        examValues: Object.values(exam),
-      });
+      // Determine if this is an edit or create operation
+      const isEditing = !!exam.id;
 
-      if (editingExam) {
-        console.log("Editing exam data:", {
-          oldExam: editingExam,
-          newExam: exam,
-          oldClassrooms: editingExam.data?.locaux,
-          newClassrooms: exam.data?.locaux,
-        });
-
-        // First, make the old classrooms available again
-        if (editingExam.data?.locaux) {
-          console.log(
-            "Making old classrooms available:",
-            editingExam.data.locaux.map((id) => `Classroom ID: ${id}`)
-          );
-          await updateClassroomAvailability(editingExam.data.locaux, true);
-        }
-
-        // Format the date to YYYY-MM-DD
-        const examDate = new Date(exam.date);
-        const formattedDate = format(examDate, "yyyy-MM-dd");
-
-        // Format time to H:i format (e.g., "09:00")
-        const formatTimeToHMM = (timeString: string) => {
-          if (!timeString) return "";
-          // If it's already in HH:mm format, return as is
-          if (/^\d{2}:\d{2}$/.test(timeString)) {
-            return timeString;
-          }
-          try {
-            // Handle ISO format
-            if (timeString.includes("T")) {
-              return format(new Date(timeString), "HH:mm");
-            }
-            // Handle simple time format
-            return timeString;
-          } catch (e) {
-            console.error("Error formatting time:", e);
-            return timeString;
-          }
-        };
-
-        const formattedStartTime = formatTimeToHMM(exam.startTime);
-        const formattedEndTime = formatTimeToHMM(exam.endTime);
-
-        // Get classroom names for the locaux field
-        const classroomNames = exam.data?.locaux
-          .map((id) => {
-            const classroom = mockClassrooms.find((c) => c.id === id);
-            return classroom ? classroom.name : id;
-          })
-          .join(", ");
-
-        // Get supervisor names for the superviseurs field
-        const supervisorNames = exam.supervisors
-          .map((id) => {
-            const supervisor = mockTeachers.find((t) => t.id === id);
-            return supervisor
-              ? `${supervisor.firstName} ${supervisor.lastName}`
-              : id;
-          })
-          .join(", ");
-
-        // Format students data according to backend requirements
-        const formattedStudents = exam.students.map((student) => {
-          if (typeof student === "string") {
-            // If student is just an ID, find the full student data from importedStudents
-            const studentData = importedStudents.find((s) => s.id === student);
-            if (!studentData) {
-              throw new Error(`Student with ID ${student} not found`);
-            }
-            return {
-              studentId: studentData.id,
-              firstName: studentData.firstName,
-              lastName: studentData.lastName,
-              email: studentData.email,
-              program: studentData.program || "Default Program", // Provide a default if not available
-            };
-          }
-          // If student is already an object with the required format
-          return {
-            studentId: student.studentId || student.id,
-            firstName: student.firstName,
-            lastName: student.lastName,
-            email: student.email,
-            program: student.program || "Default Program",
-          };
-        });
-
-        // Prepare the exam data for the API - exactly matching the Postman format
+      // Prepare the exam data for the API
         const examData = {
-          cycle: exam.cycle,
-          filiere: exam.filiere,
-          module: exam.module,
-          date_examen: formattedDate,
-          heure_debut: formattedStartTime,
-          heure_fin: formattedEndTime,
-          locaux: classroomNames,
-          superviseurs: supervisorNames,
-          classroom_ids: exam.data?.locaux.map((id) => parseInt(id, 10)),
-          students: formattedStudents,
-        };
+        formation: exam.formation || exam.cycle || "",
+        filiere: exam.filiere || "",
+        module_id: exam.module || "",
+        semestre: exam.semester || "",
+        date_examen: exam.date || "",
+        heure_debut: exam.startTime || "",
+        heure_fin: exam.endTime || "",
+        locaux: exam.classrooms ? exam.classrooms.join(", ") : "",
+        superviseurs: exam.supervisors || [],
+        professeurs: exam.professors || [],
+        students: exam.students || [],
+      };
 
-        console.log("Sending data to API:", JSON.stringify(examData, null, 2));
-
-        const response = await fetch(
+      let response;
+      if (isEditing) {
+        // Update existing exam
+        response = await fetch(
           `http://127.0.0.1:8000/api/exams/${exam.id}`,
           {
             method: "PUT",
@@ -613,117 +417,94 @@ const ExamScheduling = () => {
             body: JSON.stringify(examData),
           }
         );
+      } else {
+        // Create new exam
+        response = await fetch("http://127.0.0.1:8000/api/exams", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(examData),
+        });
+      }
 
         if (!response.ok) {
           const errorData = await response.json();
-          console.error("API error response:", errorData);
-          throw new Error(errorData.message || "Failed to update exam");
-        }
-
-        // Make the new classrooms unavailable
-        if (exam.data?.locaux) {
-          console.log(
-            "Making new classrooms unavailable:",
-            exam.data.locaux.map((id) => `Classroom ID: ${id}`)
-          );
-          await updateClassroomAvailability(exam.data.locaux, false);
-        }
-
-        // Update the exams state with the response from the API
-        setExams((prevExams) =>
-          prevExams.map((e) =>
-            e.id === exam.id
-              ? {
-                  ...e,
-                  cycle: exam.cycle,
-                  filiere: exam.filiere,
-                  module: exam.module,
-                  date: formattedDate,
-                  startTime: formattedStartTime,
-                  endTime: formattedEndTime,
-                  classrooms: exam.data?.locaux,
-                  supervisors: exam.supervisors,
-                  students: exam.students,
-                }
-              : e
-          )
+        throw new Error(
+          errorData.message || `Failed to ${isEditing ? "update" : "create"} exam`
         );
+      }
 
-        toast({
-          title: "Exam Updated",
-          description: `Exam has been updated successfully`,
-          variant: "default",
-          className: "bg-green-50 border-green-200 text-green-800",
-        });
-      } else {
-        console.log("Creating new exam with data:", {
-          exam,
-          classrooms: classroomIds,
-          classroomDetails: classroomIds.map((id) => ({
-            id,
-            type: typeof id,
-            isNumeric: !isNaN(Number(id)),
-            rawValue: id,
-          })),
-        });
+      const result = await response.json();
 
-        // Handle creating new exam
-        const newExam = { ...exam, id: Date.now().toString() };
+      if (result.status === "success") {
+        // Refresh the exams list
+        const examsResponse = await fetch("http://127.0.0.1:8000/api/exams/latest");
+        const examsData: ApiResponse = await examsResponse.json();
 
-        // Make classrooms unavailable for the new exam
-        if (classroomIds.length > 0) {
-          console.log(
-            "Making classrooms unavailable for new exam:",
-            classroomIds.map((id) => `Classroom ID: ${id}`)
-          );
+        if (examsData.status === "success") {
+          const formattedExams = examsData.data.slice(0, 5).map((apiExam) => {
+            const classrooms = apiExam.locaux
+              ? apiExam.locaux.split(",").map((local) => local.trim())
+              : [];
 
-          // Ensure we're using numeric IDs
-          const numericClassroomIds = classroomIds
-            .map((id) => {
-              if (typeof id === "number") return id;
-              const numericId = parseInt(id, 10);
-              if (!isNaN(numericId)) return numericId;
-              const match = id.match(/\d+/);
-              return match ? parseInt(match[0], 10) : null;
-            })
-            .filter((id): id is number => id !== null);
+            const examModuleId = apiExam.module_id;
 
-          if (numericClassroomIds.length === 0) {
-            console.error("No valid numeric classroom IDs found for new exam");
-            throw new Error("No valid classroom IDs provided for the exam");
-          }
+            return {
+              id: apiExam.id.toString(),
+              courseCode: examModuleId || "",
+              courseName: examModuleId || "",
+              module: examModuleId?.toString() || "",
+              cycle: apiExam.formation || "",
+              filiere: apiExam.filiere || "",
+              date: apiExam.date_examen || "",
+              startTime: apiExam.heure_debut || "",
+              endTime: apiExam.heure_fin || "",
+              classrooms: classrooms,
+              supervisors: apiExam.superviseurs
+                ? Array.isArray(apiExam.superviseurs)
+                  ? apiExam.superviseurs.map((supervisor) =>
+                      `${supervisor.prenom || ""} ${
+                        supervisor.nom || ""
+                      }`.trim()
+                    )
+                  : [apiExam.superviseurs]
+                : [],
+              students: apiExam.students
+                ? apiExam.students.map((student) => student.id.toString())
+                : [],
+              rawSuperviseurs: apiExam.superviseurs,
+              rawProfesseurs: apiExam.professeurs,
+              rawStudents: apiExam.students,
+            };
+          });
 
-          console.log("Numeric classroom IDs to update:", numericClassroomIds);
-          await updateClassroomAvailability(numericClassroomIds, false);
+          setExams(formattedExams);
         }
 
-        setExams((prevExams) => [...prevExams, newExam]);
-        toast({
-          title: "Success",
-          description: "Exam has been scheduled successfully",
-          variant: "default",
-          className: "bg-green-50 border-green-200 text-green-800",
-        });
+        // Close the dialog
+        setIsDialogOpen(false);
+        setEditingExam(null);
+
+        // Show success message
+        toast.success(
+          `Examen ${isEditing ? "modifié" : "créé"} avec succès!`
+        );
+      } else {
+        throw new Error(
+          result.message || `Failed to ${isEditing ? "update" : "create"} exam`
+        );
       }
     } catch (error) {
       console.error("Error saving exam:", error);
-      if (
-        !(
-          error instanceof Error && error.message.includes("Invalid time value")
-        )
-      ) {
-        toast({
-          title: "Error",
-          description:
-            error instanceof Error ? error.message : "Failed to save exam",
-          variant: "destructive",
-        });
-      }
-      return;
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Une erreur s'est produite lors de la sauvegarde de l'examen"
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setEditingExam(null);
-    setIsDialogOpen(false);
   };
 
   const handleEditExam = (exam: Exam) => {
@@ -731,52 +512,67 @@ const ExamScheduling = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteExam = async (id: string) => {
+  const handleDeleteExam = async (examId) => {
     try {
-      // Find the exam to get its classrooms
-      const examToDelete = exams.find((exam) => exam.id === id);
-      if (!examToDelete) {
-        throw new Error("Exam not found");
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/exams/${examId}/cancel`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to cancel exam");
       }
 
-      // First make classrooms available
-      if (examToDelete.data?.locaux) {
-        console.log(
-          "Making classrooms available after exam deletion:",
-          examToDelete.data.locaux.map((id) => `Classroom ID: ${id}`)
-        );
-        await updateClassroomAvailability(examToDelete.data.locaux, true);
-      }
+      toast.success("L'examen a été annulé et supprimé avec succès.");
 
-      const response = await fetch(`http://127.0.0.1:8000/api/exams/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      // Refresh the exams list to remove the deleted exam
+      const examsResponse = await fetch("http://127.0.0.1:8000/api/exams/latest");
+      const examsData: ApiResponse = await examsResponse.json();
 
-      if (response.ok) {
-        setExams((prevExams) => prevExams.filter((exam) => exam.id !== id));
-        toast({
-          title: "Exam Deleted",
-          description: "The exam has been removed from the schedule",
-          variant: "destructive",
+      if (examsData.status === "success") {
+        const formattedExams = examsData.data.slice(0, 5).map((apiExam) => {
+          const classrooms = apiExam.locaux
+            ? apiExam.locaux.split(",").map((local) => local.trim())
+            : [];
+
+          const examModuleId = apiExam.module_id;
+
+          return {
+            id: apiExam.id.toString(),
+            courseCode: examModuleId || "",
+            courseName: examModuleId || "",
+            module: examModuleId?.toString() || "",
+            cycle: apiExam.formation || "",
+            filiere: apiExam.filiere || "",
+            date: apiExam.date_examen || "",
+            startTime: apiExam.heure_debut || "",
+            endTime: apiExam.heure_fin || "",
+            classrooms: classrooms,
+            supervisors: apiExam.superviseurs
+              ? Array.isArray(apiExam.superviseurs)
+                ? apiExam.superviseurs.map((supervisor) =>
+                    `${supervisor.prenom || ""} ${
+                      supervisor.nom || ""
+                    }`.trim()
+                  )
+                : [apiExam.superviseurs]
+              : [],
+            students: apiExam.students
+              ? apiExam.students.map((student) => student.id.toString())
+              : [],
+            rawSuperviseurs: apiExam.superviseurs,
+            rawProfesseurs: apiExam.professeurs,
+            rawStudents: apiExam.students,
+          };
         });
-      } else {
-        const errorData = await response.json();
-        toast({
-          title: "Error",
-          description: errorData.message || "Failed to delete the exam",
-          variant: "destructive",
-        });
+
+        setExams(formattedExams);
       }
     } catch (error) {
-      console.error("Error deleting exam:", error);
-      toast({
-        title: "Error",
-        description: "An error occurred while deleting the exam",
-        variant: "destructive",
-      });
+      console.error("Error cancelling exam:", error);
+      toast.error("Une erreur s'est produite lors de l'annulation de l'examen");
     } finally {
       setIsDeleteDialogOpen(false);
       setExamToDelete(null);
@@ -808,34 +604,25 @@ const ExamScheduling = () => {
   const fetchClassroomName = async (classroomId: string) => {
     try {
       if (!classroomId) {
-        console.log("Skipping fetch for empty classroom ID");
         return "";
       }
-      console.log(`Fetching classroom info for name: ${classroomId}`);
 
       const response = await fetch(
         `http://localhost:8000/api/classrooms/name/${classroomId}`
       );
       const data = await response.json();
-      console.log(`Classroom response for name ${classroomId}:`, data);
 
       if (data.status === "success" && data.data) {
-        console.log(
-          `Setting classroom info for name ${classroomId}:`,
-          data.data
-        );
         setClassroomNames((prev) => {
           const newNames = {
             ...prev,
             [classroomId]: data.data.nom_du_local,
           };
-          console.log("Updated classroom names:", newNames);
           return newNames;
         });
         return data.data.nom_du_local;
       }
 
-      console.log(`No classroom found for name ${classroomId}`);
       return classroomId;
     } catch (error) {
       console.error(
@@ -858,10 +645,8 @@ const ExamScheduling = () => {
           .filter((id): id is string => id !== undefined && id !== null);
 
         const uniqueClassroomIds = [...new Set(classroomIds)];
-        console.log("Unique classroom IDs to fetch:", uniqueClassroomIds);
 
         if (uniqueClassroomIds.length === 0) {
-          console.log("No valid classroom IDs found in exams");
           return;
         }
 
@@ -880,20 +665,11 @@ const ExamScheduling = () => {
       !Array.isArray(classroomIds) ||
       classroomIds.length === 0
     ) {
-      console.log("No classrooms provided to getClassroomNames");
       return "No classrooms assigned";
     }
 
-    console.log("Processing classroom names:", {
-      classroomIds,
-      type: typeof classroomIds[0],
-      firstItem: classroomIds[0],
-      allItems: classroomIds,
-    });
-
     // Get the names from our state
     const names = classroomIds.map((id) => classroomNames[id] || id).join(", ");
-    console.log("Joined classroom names:", names);
     return names;
   };
 
@@ -916,51 +692,34 @@ const ExamScheduling = () => {
   const fetchModuleName = async (moduleId: string) => {
     try {
       if (!moduleId) {
-        console.log("Skipping fetch for empty module ID");
         return "";
       }
-      console.log(`Fetching module name for ID: ${moduleId}`);
 
       // Ensure moduleId is a string and clean it
       const cleanModuleId = moduleId.toString().trim();
 
       // First check if we already have the name cached
       if (moduleNames[cleanModuleId]) {
-        console.log(
-          `Using cached module name for ID ${cleanModuleId}:`,
-          moduleNames[cleanModuleId]
-        );
         return moduleNames[cleanModuleId];
       }
 
       try {
-        console.log(`Making API request for module ID: ${cleanModuleId}`);
         const response = await fetch(
           `http://localhost:8000/api/modules/${cleanModuleId}/name`
         );
         const data = await response.json();
-        console.log(`Raw API response for module ID ${cleanModuleId}:`, data);
 
         if (data.status === "success" && data.data) {
           const moduleName = data.data.module_name;
-          console.log(
-            `Setting module name for ID ${cleanModuleId}:`,
-            moduleName
-          );
           setModuleNames((prev) => {
             const newNames = {
               ...prev,
               [cleanModuleId]: moduleName,
             };
-            console.log("Updated module names:", newNames);
             return newNames;
           });
           return moduleName;
         } else {
-          console.log(
-            `API response did not contain expected data for module ID ${cleanModuleId}:`,
-            data
-          );
           // If the API call fails, use the module ID as the name
           setModuleNames((prev) => ({
             ...prev,
@@ -990,65 +749,32 @@ const ExamScheduling = () => {
   useEffect(() => {
     const fetchModuleNames = async () => {
       if (exams.length > 0) {
-        // Log the complete exam structure
-        console.log(
-          "Complete exam structure:",
-          exams.map((exam) => ({
-            id: exam.id,
-            module: exam.module,
-            moduleType: typeof exam.module,
-            courseName: exam.courseName,
-            allKeys: Object.keys(exam),
-          }))
-        );
-
         // Try different possible locations for module ID
         const moduleIds = exams
           .map((exam) => {
-            // Log all possible module ID locations
-            console.log(`Exam ${exam.id} possible module locations:`, {
-              rootModule: exam.module,
-              moduleType: typeof exam.module,
-              courseName: exam.courseName,
-              allKeys: Object.keys(exam),
-            });
+            // Try different possible locations for module ID
+            const possibleModuleId =
+              exam.module ||
+              exam.data?.module ||
+              exam.courseCode ||
+              exam.courseName;
 
-            // Use the module field which now contains the module_id
-            const examModuleId = exam.module;
-            if (!examModuleId) {
-              console.log(`No module ID found for exam ${exam.id}`);
+            if (!possibleModuleId) {
               return null;
             }
-            console.log(
-              `Selected module ID for exam ${exam.id}:`,
-              examModuleId,
-              "type:",
-              typeof examModuleId
-            );
-            return examModuleId;
-          })
-          .filter(Boolean);
 
-        console.log("Extracted module IDs:", moduleIds);
+            return possibleModuleId.toString().trim();
+          })
+          .filter((id): id is string => id !== null && id !== "");
 
         const uniqueModuleIds = [...new Set(moduleIds)];
-        console.log("Unique module IDs to fetch:", uniqueModuleIds);
 
         if (uniqueModuleIds.length === 0) {
-          console.log("No valid module IDs found in exams");
           return;
         }
 
-        // Fetch module names in parallel
         await Promise.all(
-          uniqueModuleIds.map((id) => {
-            if (!id) return Promise.resolve();
-            console.log(
-              `Starting fetch for module ID: ${id}, type:`,
-              typeof id
-            );
-            return fetchModuleName(id);
-          })
+          uniqueModuleIds.map((id) => id && fetchModuleName(id))
         );
       }
     };
@@ -1059,36 +785,22 @@ const ExamScheduling = () => {
   // Update the display of module names in the card
   const getModuleDisplayName = (moduleId: string) => {
     if (!moduleId) {
-      console.log("Empty module ID provided to getModuleDisplayName");
       return "Unknown Module";
     }
-    console.log(
-      `Getting display name for module ID: ${moduleId}, type:`,
-      typeof moduleId
-    );
-    console.log("Current module names:", moduleNames);
 
     // First try to get the name from our cache
     const cachedName = moduleNames[moduleId];
     if (cachedName) {
-      console.log(`Found cached name for module ID ${moduleId}:`, cachedName);
       return cachedName;
     }
 
     // If no cached name, try to get it from the exam data
     const exam = exams.find((e) => e.module === moduleId);
     if (exam?.courseName) {
-      console.log(
-        `Using course name as fallback for module ID ${moduleId}:`,
-        exam.courseName
-      );
       return exam.courseName;
     }
 
     // If all else fails, return the module ID
-    console.log(
-      `No name found for module ID ${moduleId}, using ID as fallback`
-    );
     return moduleId;
   };
 
@@ -1169,7 +881,7 @@ const ExamScheduling = () => {
                         moduleId: moduleId,
                         date: examDate,
                         classrooms: exam.classrooms,
-                        fullExam: exam,
+                        fullExam: JSON.stringify(exam, null, 2),
                         allKeys: Object.keys(exam),
                       });
 
@@ -1218,7 +930,7 @@ const ExamScheduling = () => {
                                   {exam.supervisors &&
                                   exam.supervisors.length > 0
                                     ? exam.supervisors.join(", ")
-                                    : fr.examScheduling.noSupervisorsAssigned}
+                                    : "Aucun superviseur assigné"}
                                 </p>
                               </div>
                               {/* Professors */}
@@ -1531,10 +1243,10 @@ const ExamScheduling = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogTitle>Confirmer l'annulation</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer l'examen pour{" "}
-              {examToDelete?.module} ? Cette action ne peut pas être annulée.
+              Êtes-vous sûr de vouloir annuler l'examen pour{" "}
+              {examToDelete?.module} ? Cette action enverra automatiquement des notifications d'annulation aux étudiants, professeurs et superviseurs concernés.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1543,14 +1255,14 @@ const ExamScheduling = () => {
               onClick={() => setIsDeleteDialogOpen(false)}
               disabled={loading}
             >
-              Annuler
+              Fermer
             </Button>
             <Button
               variant="destructive"
               onClick={() => examToDelete && handleDeleteExam(examToDelete.id)}
               disabled={loading}
             >
-              {loading ? "Suppression..." : "Supprimer"}
+              {loading ? "Annulation..." : "Annuler l'examen"}
             </Button>
           </DialogFooter>
         </DialogContent>

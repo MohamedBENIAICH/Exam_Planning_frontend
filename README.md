@@ -92,6 +92,98 @@ Exam_Planning_frontend/
 └── README.md                     # Ce fichier
 ```
 
+## Nouvelles Fonctionnalités - Annulation et Notifications Automatiques
+
+### Interface Utilisateur Améliorée
+
+L'interface a été mise à jour pour offrir une meilleure expérience utilisateur avec les nouvelles fonctionnalités d'annulation :
+
+#### Boutons d'Action Modifiés
+
+- **Remplacement** : Les boutons "Supprimer" ont été remplacés par des boutons "Annuler"
+- **Couleur** : Boutons rouges pour indiquer l'action d'annulation
+- **Icônes** : Icônes appropriées pour l'annulation
+
+#### Dialogues de Confirmation
+
+- **Messages explicites** : "Êtes-vous sûr de vouloir annuler cet examen/concours ?"
+- **Informations détaillées** : Affichage des conséquences de l'annulation
+- **Notifications automatiques** : Information sur l'envoi automatique des notifications
+
+### Composants Modifiés
+
+#### ExamScheduling.tsx
+
+- **Bouton d'annulation** : Remplacement du bouton de suppression
+- **Dialogue de confirmation** : Nouveau dialogue spécifique à l'annulation
+- **Gestion des erreurs** : Messages d'erreur adaptés aux annulations
+
+#### ConcourScheduling.tsx
+
+- **Bouton d'annulation** : Remplacement du bouton de suppression
+- **Dialogue de confirmation** : Nouveau dialogue spécifique à l'annulation
+- **Gestion des erreurs** : Messages d'erreur adaptés aux annulations
+
+#### ExamsList.jsx
+
+- **Bouton d'annulation** : Remplacement du bouton de suppression
+- **Style visuel** : Couleur rouge pour indiquer l'action d'annulation
+
+#### UpcomingExams.tsx
+
+- **Bouton d'annulation** : Remplacement du bouton de suppression
+- **Style visuel** : Couleur rouge pour indiquer l'action d'annulation
+
+### Appels API Modifiés
+
+#### Nouvelles Routes Utilisées
+
+```javascript
+// Annulation d'examen
+POST / api / exams / { id } / cancel;
+
+// Annulation de concours
+POST / api / concours / { id } / cancel;
+
+// Envoi de convocations mises à jour
+POST / api / exams / { id } / send - updated - convocations;
+POST / api / concours / { id } / send - updated - convocations;
+```
+
+#### Gestion des Réponses
+
+- **Succès** : Messages de confirmation d'annulation
+- **Erreurs** : Gestion des erreurs avec messages explicites
+- **Feedback** : Notifications utilisateur appropriées
+
+### Expérience Utilisateur
+
+#### Messages Utilisateur
+
+- **Confirmation** : "Êtes-vous sûr de vouloir annuler cet examen/concours ?"
+- **Succès** : "L'examen/concours a été annulé avec succès"
+- **Information** : "Cette action enverra automatiquement des notifications à tous les acteurs concernés"
+
+#### Indicateurs Visuels
+
+- **Couleurs** : Rouge pour les actions d'annulation
+- **Icônes** : Icônes appropriées pour l'annulation
+- **États** : Indicateurs visuels pour les événements annulés
+
+### Fonctionnalités de Notification
+
+#### Notifications Automatiques
+
+- **Annulation** : Envoi automatique lors de l'annulation
+- **Mise à jour** : Notifications lors des modifications
+- **Convocations** : Envoi de nouvelles convocations PDF
+
+#### Feedback Utilisateur
+
+- **Confirmation** : Messages de succès après envoi
+- **Erreurs** : Messages d'erreur détaillés
+- **Progression** : Indicateurs de progression si nécessaire
+
 ## Dépannage
 
 - **Le Frontend ne démarre pas ?**
@@ -101,7 +193,8 @@ Exam_Planning_frontend/
   - Assurez-vous que le backend est bien démarré et accessible depuis le frontend (généralement sur `http://localhost:8000`).
 
 ## Contributeurs et Contribution
-*   [MohamedBENIAICH](https://github.com/MohamedBENIAICH)
-*   [DiarraIbra](https://github.com/DiarraIbra)
+
+- [MohamedBENIAICH](https://github.com/MohamedBENIAICH)
+- [DiarraIbra](https://github.com/DiarraIbra)
 
 N'hésitez pas à contribuer à ce projet en ouvrant des issues ou des pull requests. Veuillez suivre les conventions de codage React.

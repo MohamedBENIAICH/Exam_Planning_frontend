@@ -64,21 +64,30 @@ const ExamsList = () => {
   const confirmDelete = async () => {
     if (!examToDelete) return;
 
+    setLoading(true);
     try {
-      setLoading(true);
-      await deleteExam(examToDelete.id);
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/exams/${examToDelete.id}/cancel`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to cancel exam");
+      }
 
       // Remove the exam from the local state
       setExams(exams.filter((exam) => exam.id !== examToDelete.id));
 
       toast({
-        title: "Examen supprimé",
-        description: `L'examen de ${examToDelete.module} a été supprimé avec succès`,
+        title: "Examen annulé",
+        description: `L'examen de ${examToDelete.module} a été annulé avec succès`,
       });
     } catch (error) {
       toast({
         title: "Erreur",
-        description: `Impossible de supprimer l'examen: ${error.message}`,
+        description: `Impossible d'annuler l'examen: ${error.message}`,
         variant: "destructive",
       });
     } finally {
@@ -193,7 +202,7 @@ const ExamsList = () => {
                   onClick={() => handleDeleteClick(exam)}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Supprimer
+                  Annuler
                 </Button>
               </CardFooter>
             </Card>
@@ -205,10 +214,12 @@ const ExamsList = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogTitle>Confirmer l'annulation</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer l'examen de{" "}
-              {examToDelete?.module}? Cette action ne peut pas être annulée.
+              Êtes-vous sûr de vouloir annuler l'examen de{" "}
+              {examToDelete?.module}? Cette action enverra automatiquement des
+              notifications d'annulation aux étudiants, professeurs et
+              superviseurs concernés.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -217,14 +228,14 @@ const ExamsList = () => {
               onClick={() => setIsDeleteDialogOpen(false)}
               disabled={loading}
             >
-              Annuler
+              Fermer
             </Button>
             <Button
               variant="destructive"
               onClick={confirmDelete}
               disabled={loading}
             >
-              {loading ? "Suppression..." : "Supprimer"}
+              {loading ? "Annulation..." : "Annuler l'examen"}
             </Button>
           </DialogFooter>
         </DialogContent>

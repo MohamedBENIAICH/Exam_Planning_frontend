@@ -202,30 +202,38 @@ const ConcourScheduling = () => {
     setIsDialogOpen(true);
   };
 
-  const handleDeleteConcour = async (id) => {
+  const handleDeleteConcour = async (concourId) => {
     try {
-      setLoading(true);
-      const response = await fetch(`http://127.0.0.1:8000/api/concours/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!response.ok) throw new Error("Erreur lors de la suppression");
-      setConcours((prev) => prev.filter((c) => c.id !== id));
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/concours/${concourId}/cancel`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to cancel concours");
+      }
+
       toast({
-        title: "Supprimé",
-        description: "Concours supprimé",
-        variant: "destructive",
+        title: "Succès",
+        description: "Le concours a été annulé avec succès.",
       });
+
+      // Remove the concours from the list
+      setConcours((prevConcours) =>
+        prevConcours.filter((concour) => concour.id !== concourId)
+      );
     } catch (error) {
+      console.error("Error cancelling concours:", error);
       toast({
         title: "Erreur",
-        description: error.message || "Erreur lors de la suppression",
+        description: "Une erreur s'est produite lors de l'annulation du concours",
         variant: "destructive",
       });
     } finally {
       setIsDeleteDialogOpen(false);
       setConcourToDelete(null);
-      setLoading(false);
     }
   };
 
@@ -608,10 +616,10 @@ const ConcourScheduling = () => {
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogTitle>Confirmer l'annulation</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer le concours{" "}
-              {concourToDelete?.titre} ? Cette action ne peut pas être annulée.
+              Êtes-vous sûr de vouloir annuler le concours{" "}
+              {concourToDelete?.titre} ? Cette action enverra automatiquement des notifications d'annulation aux candidats, professeurs et superviseurs concernés.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -620,7 +628,7 @@ const ConcourScheduling = () => {
               onClick={() => setIsDeleteDialogOpen(false)}
               disabled={loading}
             >
-              Annuler
+              Fermer
             </Button>
             <Button
               variant="destructive"
@@ -629,7 +637,7 @@ const ConcourScheduling = () => {
               }
               disabled={loading}
             >
-              {loading ? "Suppression..." : "Supprimer"}
+              {loading ? "Annulation..." : "Annuler le concours"}
             </Button>
           </DialogFooter>
         </DialogContent>

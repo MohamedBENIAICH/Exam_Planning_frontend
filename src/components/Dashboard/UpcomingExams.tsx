@@ -292,28 +292,28 @@ const ExamSection = ({
   const handleDeleteExam = async (exam: ApiExam) => {
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${exam.id}`,
+        `http://127.0.0.1:8000/api/exams/${exam.id}/cancel`,
         {
-          method: "DELETE",
+          method: "POST",
         }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to delete exam");
+        throw new Error("Failed to cancel exam");
       }
 
       toast({
         title: "Succès",
-        description: "L'examen a été supprimé avec succès.",
+        description: "L'examen a été annulé avec succès.",
       });
 
       // Remove the exam from the list
       onExamUpdate({ ...exam, id: -1 }); // Mark as deleted
     } catch (error) {
-      console.error("Error deleting exam:", error);
+      console.error("Error cancelling exam:", error);
       toast({
         title: "Erreur",
-        description: "Une erreur s'est produite lors de la suppression de l'examen",
+        description: "Une erreur s'est produite lors de l'annulation de l'examen",
         variant: "destructive",
       });
     } finally {
@@ -801,11 +801,10 @@ const ExamSection = ({
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmer la suppression</DialogTitle>
+            <DialogTitle>Confirmer l'annulation</DialogTitle>
             <DialogDescription>
-              Êtes-vous sûr de vouloir supprimer l'examen de{" "}
-              {examToDelete?.module_name} ? Cette action ne peut pas être
-              annulée.
+              Êtes-vous sûr de vouloir annuler l'examen de{" "}
+              {examToDelete?.module_name} ? Cette action enverra automatiquement des notifications d'annulation aux étudiants, professeurs et superviseurs concernés.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -813,13 +812,13 @@ const ExamSection = ({
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
             >
-              Annuler
+              Fermer
             </Button>
             <Button
               variant="destructive"
               onClick={() => examToDelete && handleDeleteExam(examToDelete)}
             >
-              Supprimer
+              Annuler l'examen
             </Button>
           </DialogFooter>
         </DialogContent>
