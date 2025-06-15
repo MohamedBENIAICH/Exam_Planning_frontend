@@ -25,6 +25,8 @@ import FilieresUpdateForm from "./components/Filieres/FilieresUpdateForm.jsx";
 import Modules from "./pages/Modules";
 import ModulesForm from "./components/Modules/ModulesForm";
 import ModulesUpdateForm from "./components/Modules/ModulesUpdateForm.jsx";
+import UpcomingConcours from "./pages/UpcomingConcours";
+import PastConcours from "./pages/PastConcours";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +56,8 @@ const App = () => (
             <Route path="/formations/form" element={<FormationsForm />} />
             <Route path="/filieres" element={<Filieres />} />
             <Route path="/filieres/form" element={<FilieresForm />} />
+            <Route path="/upcoming-concours" element={<UpcomingConcours />} />
+            <Route path="/past-concours" element={<PastConcours />} />
             <Route
               path="/filieres/updateform"
               element={<FilieresUpdateForm />}

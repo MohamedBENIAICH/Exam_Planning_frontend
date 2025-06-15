@@ -26,6 +26,8 @@ const mainNavItems = [
   { path: "/past-exams", label: fr.navigation.pastExams, icon: History },
   { path: "/upcoming-exams", label: fr.navigation.upcomingExams, icon: Clock },
   { path: "/concours", label: fr.navigation.concours, icon: Calendar },
+  { path: "/upcoming-concours", label: fr.navigation.upcomingConcours, icon: Clock },
+  { path: "/past-concours", label: fr.navigation.pastConcours, icon: History },
 ];
 
 const settingsNavItems = [

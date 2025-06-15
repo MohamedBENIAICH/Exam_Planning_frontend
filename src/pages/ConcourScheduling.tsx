@@ -119,29 +119,32 @@ const ConcourScheduling = () => {
     fetchAllData();
   }, [toast]);
 
-  useEffect(() => {
-    const fetchConcours = async () => {
-      try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/concours/latest"
-        );
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setConcours(data.slice(0, 5));
-        } else {
-          setError("Erreur lors du chargement des concours");
-        }
-      } catch (err) {
+  // Fetch concours as a named function so it can be reused
+  const fetchConcours = async () => {
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/concours/latest"
+      );
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setConcours(data.slice(0, 5));
+      } else {
         setError("Erreur lors du chargement des concours");
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      setError("Erreur lors du chargement des concours");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchConcours();
   }, []);
 
   const handleAddEditConcour = async (concour) => {
     console.log("handleAddEditConcour called. editingConcour:", editingConcour);
+    console.log("Sending payload:", JSON.stringify(concour, null, 2));
     try {
       setLoading(true);
       if (editingConcour) {
@@ -154,36 +157,32 @@ const ConcourScheduling = () => {
             body: JSON.stringify(concour),
           }
         );
+        console.log("Update response status:", response.status);
         if (!response.ok) throw new Error("Erreur lors de la modification");
-        toast({ title: "Succès", description: "Concours modifié !" });
-        setConcours((prev) =>
-          prev.map((c) =>
-            c.id === editingConcour.id ? { ...concour, id: c.id } : c
-          )
-        );
+        toast({
+          title: "Succès",
+          description: "Le concours a été modifié avec succès.",
+        });
         setEditingConcour(null);
         setIsDialogOpen(false);
+        fetchConcours(); // Refresh list after update
       } else {
         // Create concours
+        console.log("Creating new concours with payload:", JSON.stringify(concour, null, 2));
         const response = await fetch("http://127.0.0.1:8000/api/concours", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(concour),
         });
+        console.log("Create response status:", response.status);
         if (!response.ok) throw new Error("Erreur lors de l'ajout");
         const data = await response.json();
-        toast({ 
-          title: "Succès", 
-          description: "Concours créé ! Les convocations ont été envoyées automatiquement aux surveillants et professeurs." 
+        toast({
+          title: "Succès",
+          description: "Le concours a été ajouté avec succès.",
         });
-        setConcours((prev) =>
-          [
-            { ...concour, id: data.id || Date.now().toString() },
-            ...prev,
-          ].slice(0, 5)
-        );
-        setEditingConcour(null);
         setIsDialogOpen(false);
+        fetchConcours(); // Refresh list after add
       }
     } catch (error) {
       toast({
@@ -224,6 +223,7 @@ const ConcourScheduling = () => {
       setConcours((prevConcours) =>
         prevConcours.filter((concour) => concour.id !== concourId)
       );
+      fetchConcours(); // Refresh list after delete
     } catch (error) {
       console.error("Error cancelling concours:", error);
       toast({

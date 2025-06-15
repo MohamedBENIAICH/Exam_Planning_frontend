@@ -98,12 +98,26 @@ const ClassroomForm = ({ classroom, onSubmit, onCancel }) => {
     try {
       if (classroom) {
         // Handle update case
+        console.log('📤 Sending UPDATE payload to backend:', JSON.stringify({
+          ...values,
+          // Add any additional fields that might be added by the form
+        }, null, 2));
         onSubmit(values);
       } else {
         // Handle create case
-        console.log("Submitting form with values:", values);
-        const response = await createClassroom(values);
-        console.log("Create classroom response:", response);
+        const payload = {
+          nom_du_local: values.name,
+          type_de_salle: 'Salle de classe', // Default value, adjust as needed
+          capacite: values.capacity,
+          departement: values.department,
+          equipements: values.equipment.join(', '),
+          batiment: values.building,
+          statut: 'Disponible' // Default status
+        };
+        
+        console.log('📤 Sending CREATE payload to backend:', JSON.stringify(payload, null, 2));
+        const response = await createClassroom(payload);
+        console.log('✅ Create classroom response:', response);
 
         if (response && response.id) {
           toast({

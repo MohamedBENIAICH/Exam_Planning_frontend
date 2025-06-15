@@ -422,35 +422,36 @@ const ConcoursForm = ({
 
   const handleFormSubmit = async (values) => {
     try {
-      // Convert locaux array to string
-      let locauxString = "";
-      if (Array.isArray(values.locaux)) {
-        // If you want to send names:
-        const allLocaux = [...amphitheaters, ...availableClassrooms];
-        locauxString = values.locaux
-          .map((id) => {
-            const found = allLocaux.find((l) => l.id.toString() === id);
-            return found ? found.nom_du_local : id;
-          })
-          .join(", ");
-      } else {
-        locauxString = values.locaux;
-      }
+      // Prepare locaux array with nom_local and capacity
+      const allLocaux = [...amphitheaters, ...availableClassrooms];
+      const locaux = values.locaux.map(id => {
+        const local = allLocaux.find(l => l.id.toString() === id);
+        return {
+          nom_local: local?.nom_du_local || id,
+          capacity: local?.capacite || 20 // Default capacity if not specified
+        };
+      });
+      
+      console.log('Prepared locaux:', locaux);
 
-      // Prepare payload
+      // Prepare payload with new structure
       const payload = {
         titre: values.titre,
         description: values.description,
         date_concours: format(values.date_concours, "yyyy-MM-dd"),
         heure_debut: values.heure_debut,
         heure_fin: values.heure_fin,
-        locaux: locauxString,
         type_epreuve: values.type_epreuve,
-        candidats: values.candidats,
-        superviseurs: values.superviseurs
-          ? values.superviseurs.map(Number)
-          : [],
+        locaux: locaux,
+        candidats: values.candidats.map((c) => ({
+          CNE: c.CNE,
+          CIN: c.CIN,
+          nom: c.nom,
+          prenom: c.prenom,
+          email: c.email,
+        })),
         professeurs: values.professeurs ? values.professeurs.map(Number) : [],
+        superviseurs: values.superviseurs ? values.superviseurs.map(Number) : [],
       };
 
       console.log("Payload sent to backend:", payload);

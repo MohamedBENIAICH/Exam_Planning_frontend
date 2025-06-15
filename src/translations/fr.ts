@@ -38,6 +38,8 @@ export const fr = {
     filieres: "Gestion des filières",
     modules: "Gestion des modules",
     concours: "Planification des concours",
+    upcomingConcours: "Concours à venir",
+    pastConcours: "Concours passés",
   },
 
   // Dashboard
