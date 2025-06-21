@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import ConcoursForm from "@/components/Concours/ConcoursForm";
 import { useToast } from "@/components/ui/use-toast";
+import { ConcoursSection } from "@/components/Dashboard/UpcomingConcours";
 
 const ConcourScheduling = () => {
   const [concours, setConcours] = useState([]);
@@ -386,164 +387,15 @@ const ConcourScheduling = () => {
                   <p>{error}</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {concours.map((concour) => (
-                    <Card key={concour.id}>
-                      <CardHeader>
-                        <div className="flex justify-between">
-                          <div>
-                            <CardTitle>{concour.titre}</CardTitle>
-                            <CardDescription>
-                              {concour.description}
-                            </CardDescription>
-                          </div>
-                          <Badge>
-                            {format(
-                              new Date(concour.date_concours),
-                              "yyyy-MM-dd"
-                            )}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm font-medium flex items-center gap-1">
-                              <CalendarIcon className="h-4 w-4" />
-                              Heure
-                            </p>
-                            <p className="text-sm">
-                              {concour.heure_debut} - {concour.heure_fin}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium flex items-center gap-1">
-                              <Building className="h-4 w-4" />
-                              Locaux
-                            </p>
-                            <p className="text-sm">
-                              {(() => {
-                                let locaux = concour.locaux;
-                                if (Array.isArray(locaux) && locaux.length && typeof locaux[0] === 'object') {
-                                  return locaux.map(l => l.nom_local || l.nom_du_local).join(", ");
-                                }
-                                if (Array.isArray(locaux)) {
-                                  // Cas tableau d'IDs
-                                  return locaux.map(id => getLocalName(id)).join(", ");
-                                }
-                                if (typeof locaux === "string") {
-                                  try {
-                                    const parsed = JSON.parse(locaux);
-                                    if (Array.isArray(parsed)) {
-                                      if (typeof parsed[0] === 'object') {
-                                        return parsed.map(l => l.nom_local || l.nom_du_local).join(", ");
-                                      }
-                                      // Si IDs
-                                      return parsed.map(id => getLocalName(id)).join(", ");
-                                    }
-                                  } catch (e) {}
-                                  return locaux;
-                                }
-                                return '';
-                              })()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm font-medium flex items-center gap-1">
-                              <Users className="h-4 w-4" />
-                              Superviseurs
-                            </p>
-                            <p className="text-sm">
-                              {Array.isArray(concour.superviseurs) && concour.superviseurs.length > 0
-                                ? concour.superviseurs.map(s => `${s.prenom} ${s.nom}`).join(", ")
-                                : "Aucun"}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium flex items-center gap-1">
-                              <UserIcon className="h-4 w-4 text-muted-foreground" />
-                              Professeurs
-                            </p>
-                            <p className="text-sm">
-                              {Array.isArray(concour.professeurs) && concour.professeurs.length > 0
-                                ? concour.professeurs.map(p => `${p.prenom} ${p.nom}`).join(", ")
-                                : "Aucun"}
-                            </p>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium flex items-center gap-1">
-                            <Users className="h-4 w-4" />
-                            Candidats
-                          </p>
-                          <p className="text-sm">
-                            {Array.isArray(concour.candidats)
-                              ? concour.candidats.length
-                              : 0}{" "}
-                            au total
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium flex items-center gap-1">
-                            <Info className="h-4 w-4" />
-                            Type d'épreuve
-                          </p>
-                          <p className="text-sm">{concour.type_epreuve}</p>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-end gap-2 flex-wrap">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditConcour(concour)}
-                        >
-                          Modifier
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            setConcourToDelete(concour);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          Supprimer
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedConcour(concour)}
-                        >
-                          <Info className="h-4 w-4 mr-2" />
-                          Détail
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => handleSendConvocations(concour.id)}
-                          disabled={sendingConvocations[concour.id]}
-                        >
-                          <Mail className="h-4 w-4 mr-2" />
-                          {sendingConvocations[concour.id] 
-                            ? "Envoi..." 
-                            : "Envoyer convocations candidats"
-                          }
-                        </Button>
-                        {/* Bouton de téléchargement du compte rendu */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownloadReport(concour.id)}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Compte Rendu
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
+                <ConcoursSection
+                  title="Les 5 derniers concours"
+                  concours={concours}
+                  loading={loading}
+                  error={error}
+                  onConcoursUpdate={handleAddEditConcour}
+                  onConcoursDelete={handleDeleteConcour}
+                  limit={5}
+                />
               )}
             </TabsContent>
           </Tabs>

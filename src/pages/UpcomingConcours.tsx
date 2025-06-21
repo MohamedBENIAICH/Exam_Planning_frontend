@@ -73,13 +73,17 @@ const UpcomingConcours = () => {
         const response = await fetch("http://127.0.0.1:8000/api/concours/upcoming");
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
+        let concoursList = [];
         if (Array.isArray(data)) {
-          setConcours(data); // Tous les concours à venir
+          concoursList = data;
         } else if (data.status === "success" && Array.isArray(data.data)) {
-          setConcours(data.data); // Tous les concours à venir
+          concoursList = data.data;
         } else {
           setError("Format de réponse API invalide");
         }
+        // Filtrer côté frontend pour ne garder que les concours à venir
+        const now = new Date();
+        setConcours(concoursList.filter(c => new Date(c.date_concours) >= now));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur lors du chargement des concours à venir");
       } finally {

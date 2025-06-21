@@ -97,6 +97,7 @@ interface ConcoursSectionProps {
   availableSuperviseurs?: any[];
   availableCandidats?: any[];
   showEditButton?: boolean;
+  limit?: number;
 }
 
 const ConcoursSection = ({
@@ -111,6 +112,7 @@ const ConcoursSection = ({
   availableSuperviseurs = [],
   availableCandidats = [],
   showEditButton = true,
+  limit,
 }: ConcoursSectionProps) => {
   const [showCandidates, setShowCandidates] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -129,9 +131,12 @@ const ConcoursSection = ({
   const [detailLoading, setDetailLoading] = useState(false);
 
   // Sort concours by date
-  const sortedConcours = [...concours].sort(
+  let sortedConcours = [...concours].sort(
     (a, b) => new Date(a.date_concours).getTime() - new Date(b.date_concours).getTime()
   );
+  if (limit) {
+    sortedConcours = sortedConcours.slice(-limit);
+  }
 
   // Calculate pagination
   const totalPages = Math.ceil(sortedConcours.length / concoursPerPage);
