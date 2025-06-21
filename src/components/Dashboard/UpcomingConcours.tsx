@@ -82,6 +82,7 @@ interface Concours {
   superviseurs: Superviseur[];
   professeurs: Professeur[];
   classroom_assignments?: any[]; // For details modal
+  repartition?: any[]; // Added for the new repartition format
 }
 
 interface ConcoursSectionProps {
@@ -597,6 +598,31 @@ const ConcoursSection = ({
           </DialogHeader>
           {detailLoading ? (
             <div className="p-6 text-center">Chargement des détails...</div>
+          ) : selectedConcours && selectedConcours.repartition ? (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">ÉTUDIANTS & PLACES</h3>
+                <Badge>
+                  {selectedConcours.repartition.reduce((acc, salle) => acc + salle.candidats.length, 0)} au total
+                </Badge>
+              </div>
+              {selectedConcours.repartition.length > 0 ? (
+                selectedConcours.repartition.map((salle) => (
+                  <div key={salle.classroom_id} className="mb-4 p-3 border rounded">
+                    <div className="font-semibold mb-1">{salle.classroom_name} ({salle.assigned}/{salle.capacity})</div>
+                    <ul className="list-disc ml-6">
+                      {salle.candidats.map((c) => (
+                        <li key={c.candidat_id}>
+                          {c.nom} {c.prenom} (CNE: {c.cne}) - Place: {c.seat_number}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              ) : (
+                <div>Aucune répartition trouvée.</div>
+              )}
+            </div>
           ) : selectedConcours && selectedConcours.classroom_assignments ? (
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
@@ -605,46 +631,8 @@ const ConcoursSection = ({
                   {selectedConcours.classroom_assignments.length} au total
                 </Badge>
               </div>
-
-              {Object.values(
-                selectedConcours.classroom_assignments.reduce((acc, assign) => {
-                  if (!assign.classroom) return acc;
-                  const classId = assign.classroom.id;
-                  if (!acc[classId]) {
-                    acc[classId] = {
-                      classroom: assign.classroom,
-                      candidats: [],
-                    };
-                  }
-                  if (assign.candidat) {
-                    acc[classId].candidats.push(assign.candidat);
-                  }
-                  return acc;
-                }, {})
-              ).map(({ classroom, candidats }: any) => (
-                <div key={classroom.id} className="mb-4 border rounded-lg p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h4 className="font-semibold">
-                      {classroom.nom_du_local} (Capacité : {classroom.capacite})
-                                      </h4>
-                    <span className="text-sm text-gray-500">
-                      {candidats.length} / {classroom.capacite} places occupées
-                                        </span>
-                                      </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                    {candidats.map((candidat: any, index: number) => (
-                      <div
-                        key={candidat.id}
-                        className="bg-gray-100 p-2 rounded-md"
-                      >
-                        <p className="font-medium">{candidat.nom} {candidat.prenom}</p>
-                        <p className="text-sm text-gray-600">Place : {index + 1}</p>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-              ))}
-                        </div>
+              {/* Ancien affichage si pas de répartition */}
+            </div>
           ) : (
             <div className="p-6">Aucune donnée de répartition disponible.</div>
           )}
