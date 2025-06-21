@@ -497,13 +497,13 @@ const ConcoursSection = ({
               <CardFooter className="flex-col items-stretch pt-4">
                 <div className="flex justify-between items-center mb-4">
                   {showEditButton && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleEditConcour(concours)}
-                      disabled={concours.status === 'annulé'}
-                    >
-                      Modifier
-                    </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => handleEditConcour(concours)}
+                    disabled={concours.status === 'annulé'}
+                  >
+                    Modifier
+                  </Button>
                   )}
                   <Button
                     variant="destructive"
@@ -626,11 +626,11 @@ const ConcoursSection = ({
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="font-semibold">
                       {classroom.nom_du_local} (Capacité : {classroom.capacite})
-                    </h4>
+                                      </h4>
                     <span className="text-sm text-gray-500">
                       {candidats.length} / {classroom.capacite} places occupées
-                    </span>
-                  </div>
+                                        </span>
+                                      </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                     {candidats.map((candidat: any, index: number) => (
                       <div
@@ -639,12 +639,12 @@ const ConcoursSection = ({
                       >
                         <p className="font-medium">{candidat.nom} {candidat.prenom}</p>
                         <p className="text-sm text-gray-600">Place : {index + 1}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
               ))}
-            </div>
+                        </div>
           ) : (
             <div className="p-6">Aucune donnée de répartition disponible.</div>
           )}

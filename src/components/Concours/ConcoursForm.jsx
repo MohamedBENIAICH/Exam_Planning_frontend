@@ -41,6 +41,7 @@ const ConcoursForm = ({
   concour,
   onSubmit,
   onCancel,
+  availableLocaux = [],
   availableProfesseurs = [],
   availableSuperviseurs = [],
   availableCandidats = [],
@@ -71,6 +72,13 @@ const ConcoursForm = ({
   const [supervisorsByDepartment, setSupervisorsByDepartment] = useState([]);
   const [loadingSupervisors, setLoadingSupervisors] = useState(false);
   const [showSuperviseursList, setShowSuperviseursList] = useState(false);
+
+  // Regroupe tous les locaux disponibles pour la correspondance lors de la soumission
+  const allLocaux = [
+    ...(Array.isArray(amphitheaters) ? amphitheaters : []),
+    ...(Array.isArray(availableClassrooms) ? availableClassrooms : []),
+    ...(Array.isArray(availableLocaux) ? availableLocaux : []),
+  ];
 
   // Schéma de validation dynamique
   const formSchema = z.object({
@@ -107,11 +115,40 @@ const ConcoursForm = ({
             : new Date(),
           heure_debut: concour.heure_debut || "09:00",
           heure_fin: concour.heure_fin || "11:00",
-          locaux: concour.locaux
-            ? typeof concour.locaux === "string"
-              ? concour.locaux.split(", ").map((item) => item.trim())
-              : concour.locaux
-            : [],
+          locaux: (() => {
+            if (!concour.locaux) return [];
+            if (Array.isArray(concour.locaux)) {
+              // Si déjà un tableau d'IDs (strings)
+              if (
+                typeof concour.locaux[0] === "string" ||
+                typeof concour.locaux[0] === "number"
+              ) {
+                return concour.locaux.map(String);
+              }
+              // Si tableau d'objets locaux
+              if (typeof concour.locaux[0] === "object") {
+                return concour.locaux.map(
+                  (l) => l.id?.toString() || l.nom_local || l.nom_du_local || ""
+                );
+              }
+            }
+            if (typeof concour.locaux === "string") {
+              try {
+                const parsed = JSON.parse(concour.locaux);
+                if (Array.isArray(parsed)) {
+                  // On prend l'id si dispo, sinon le nom
+                  return parsed.map(
+                    (l) =>
+                      l.id?.toString() || l.nom_local || l.nom_du_local || ""
+                  );
+                }
+              } catch (e) {
+                // fallback split by comma
+                return concour.locaux.split(",").map((s) => s.trim());
+              }
+            }
+            return [];
+          })(),
           type_epreuve: concour.type_epreuve || "",
           candidats: concour.candidats
             ? concour.candidats.map((c) => ({
@@ -278,18 +315,61 @@ const ConcoursForm = ({
     const fetchAmphitheaters = async () => {
       try {
         setLoadingAmphitheaters(true);
-        const response = await fetch(
-          "http://localhost:8000/api/classrooms/amphitheaters"
-        );
-        const data = await response.json();
-        if (data.status === "success") {
-          setAmphitheaters(data.data);
+
+        if (
+          isEditMode &&
+          form.getValues("date_concours") &&
+          form.getValues("heure_debut") &&
+          form.getValues("heure_fin")
+        ) {
+          // Pour la modification : afficher tous les amphithéâtres mais marquer ceux indisponibles
+          const formattedDate = format(
+            form.getValues("date_concours"),
+            "yyyy-MM-dd"
+          );
+          const startTime = form.getValues("heure_debut");
+          const endTime = form.getValues("heure_fin");
+
+          // Récupérer les amphithéâtres programmés
+          const scheduledResponse = await fetch(
+            `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&type=amphi`
+          );
+          const scheduledData = await scheduledResponse.json();
+
+          // Récupérer tous les amphithéâtres
+          const response = await fetch(
+            "http://localhost:8000/api/classrooms/amphitheaters"
+          );
+          const data = await response.json();
+
+          if (data.status === "success" && scheduledData.status === "success") {
+            const scheduledAmphiIds =
+              scheduledData.data.scheduled_classrooms.map((c) => c.id);
+
+            // Marquer les amphithéâtres comme indisponibles s'ils sont programmés
+            const amphitheatersWithAvailability = data.data.map((amphi) => ({
+              ...amphi,
+              isUnavailable: scheduledAmphiIds.includes(amphi.id),
+            }));
+            setAmphitheaters(amphitheatersWithAvailability);
+          } else {
+            setAmphitheaters(data.status === "success" ? data.data : []);
+          }
         } else {
-          toast({
-            title: "Erreur",
-            description: "Impossible de charger les amphithéâtres",
-            variant: "destructive",
-          });
+          // Pour la création : logique existante
+          const response = await fetch(
+            "http://localhost:8000/api/classrooms/amphitheaters"
+          );
+          const data = await response.json();
+          if (data.status === "success") {
+            setAmphitheaters(data.data);
+          } else {
+            toast({
+              title: "Erreur",
+              description: "Impossible de charger les amphithéâtres",
+              variant: "destructive",
+            });
+          }
         }
       } catch (error) {
         toast({
@@ -302,7 +382,13 @@ const ConcoursForm = ({
       }
     };
     fetchAmphitheaters();
-  }, [toast]);
+  }, [
+    toast,
+    isEditMode,
+    form.watch("date_concours"),
+    form.watch("heure_debut"),
+    form.watch("heure_fin"),
+  ]);
 
   // Load available classrooms based on date/time/department
   useEffect(() => {
@@ -328,38 +414,69 @@ const ConcoursForm = ({
         const startTime = form.getValues("heure_debut");
         const endTime = form.getValues("heure_fin");
 
-        // First API call to get scheduled classrooms
-        const scheduledResponse = await fetch(
-          `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
-        );
-        const scheduledData = await scheduledResponse.json();
-
-        if (scheduledData.status === "success") {
-          const scheduledClassroomIds =
-            scheduledData.data.scheduled_classrooms.map((c) => c.id);
-
-          // Second API call to get available classrooms
-          const availableResponse = await fetch(
-            "http://localhost:8000/api/classrooms/not-in-list",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                classroom_ids: scheduledClassroomIds,
-              }),
-            }
+        if (isEditMode) {
+          // Pour la modification : afficher tous les locaux du département, mais exclure ceux indisponibles
+          // First API call to get scheduled classrooms
+          const scheduledResponse = await fetch(
+            `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
           );
-          const availableData = await availableResponse.json();
+          const scheduledData = await scheduledResponse.json();
 
-          if (availableData.status === "success") {
-            // Filter classrooms by selected department
-            const departmentClassrooms = availableData.data.filter(
-              (classroom) =>
-                classroom.departement === selectedClassroomDepartment
+          if (scheduledData.status === "success") {
+            const scheduledClassroomIds =
+              scheduledData.data.scheduled_classrooms.map((c) => c.id);
+
+            // Second API call to get all classrooms of the department
+            const allClassroomsResponse = await fetch(
+              `http://localhost:8000/api/classrooms/by-departement?departement=${selectedClassroomDepartment}`
             );
-            setAvailableClassrooms(departmentClassrooms);
+            const allClassroomsData = await allClassroomsResponse.json();
+
+            if (allClassroomsData.status === "success") {
+              // Marquer les locaux comme indisponibles s'ils sont dans la liste des salles programmées
+              const classroomsWithAvailability = allClassroomsData.data.map(
+                (classroom) => ({
+                  ...classroom,
+                  isUnavailable: scheduledClassroomIds.includes(classroom.id),
+                })
+              );
+              setAvailableClassrooms(classroomsWithAvailability);
+            }
+          }
+        } else {
+          // Pour la création : logique existante (afficher seulement les locaux disponibles)
+          const scheduledResponse = await fetch(
+            `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
+          );
+          const scheduledData = await scheduledResponse.json();
+
+          if (scheduledData.status === "success") {
+            const scheduledClassroomIds =
+              scheduledData.data.scheduled_classrooms.map((c) => c.id);
+
+            // Second API call to get available classrooms
+            const availableResponse = await fetch(
+              "http://localhost:8000/api/classrooms/not-in-list",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  classroom_ids: scheduledClassroomIds,
+                }),
+              }
+            );
+            const availableData = await availableResponse.json();
+
+            if (availableData.status === "success") {
+              // Filter classrooms by selected department
+              const departmentClassrooms = availableData.data.filter(
+                (classroom) =>
+                  classroom.departement === selectedClassroomDepartment
+              );
+              setAvailableClassrooms(departmentClassrooms);
+            }
           }
         }
       } catch (error) {
@@ -379,6 +496,7 @@ const ConcoursForm = ({
     form.watch("date_concours"),
     form.watch("heure_debut"),
     form.watch("heure_fin"),
+    isEditMode,
     toast,
   ]);
 
@@ -421,9 +539,17 @@ const ConcoursForm = ({
   }, [selectedDepartment, toast]);
 
   const handleFormSubmit = async (values) => {
-    // Validation manuelle pour la création
-    if (!isEditMode) {
-      if (values.professeurs.length === 0) {
+    // Validation stricte pour la modification
+    if (isEditMode) {
+      if (!values.locaux || values.locaux.length === 0) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez sélectionner au moins un local.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!values.professeurs || values.professeurs.length === 0) {
         toast({
           title: "Erreur",
           description: "Veuillez sélectionner au moins un professeur.",
@@ -431,7 +557,7 @@ const ConcoursForm = ({
         });
         return;
       }
-      if (values.superviseurs.length === 0) {
+      if (!values.superviseurs || values.superviseurs.length === 0) {
         toast({
           title: "Erreur",
           description: "Veuillez sélectionner au moins un superviseur.",
@@ -444,15 +570,22 @@ const ConcoursForm = ({
     try {
       const submissionData = { ...values };
 
-      // Assurez-vous que les locaux sont bien un JSON stringifié d'objets
+      // Assurez-vous que les locaux sont bien un JSON stringifié d'objets avec les bons champs
       if (Array.isArray(submissionData.locaux)) {
         const locauxDetails = submissionData.locaux
           .map((localId) => {
-            return allLocaux.find(
-              (l) => l.id.toString() === localId.toString()
+            const localObj = allLocaux.find(
+              (l) => l.id?.toString() === localId.toString()
             );
+            if (localObj) {
+              return {
+                nom_local: localObj.nom_local || localObj.nom_du_local,
+                capacity: localObj.capacity || localObj.capacite || 0,
+              };
+            }
+            return null;
           })
-          .filter(Boolean); // Filtrer les valeurs undefined
+          .filter(Boolean);
         submissionData.locaux = JSON.stringify(locauxDetails);
       }
 
@@ -668,7 +801,9 @@ const ConcoursForm = ({
                       amphitheaters.map((amphi) => (
                         <div
                           key={amphi.id}
-                          className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                          className={`flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100 ${
+                            amphi.isUnavailable ? "opacity-60" : ""
+                          }`}
                         >
                           <div className="flex items-start gap-2">
                             <Checkbox
@@ -676,6 +811,7 @@ const ConcoursForm = ({
                               checked={field.value.includes(
                                 amphi.id.toString()
                               )}
+                              disabled={amphi.isUnavailable}
                               onCheckedChange={(checked) => {
                                 if (checked) {
                                   field.onChange([
@@ -693,13 +829,23 @@ const ConcoursForm = ({
                             />
                             <label
                               htmlFor={`amphi-${amphi.id}`}
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              className={`text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer ${
+                                amphi.isUnavailable ? "text-slate-500" : ""
+                              }`}
                             >
                               {amphi.nom_du_local} - Capacité: {amphi.capacite}
                             </label>
                           </div>
-                          <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                            Disponible
+                          <span
+                            className={`font-medium text-sm px-2 py-1 rounded-full ${
+                              amphi.isUnavailable
+                                ? "text-red-600 bg-red-50"
+                                : "text-green-600 bg-green-50"
+                            }`}
+                          >
+                            {amphi.isUnavailable
+                              ? "Indisponible"
+                              : "Disponible"}
                           </span>
                         </div>
                       ))
@@ -756,7 +902,9 @@ const ConcoursForm = ({
                           availableClassrooms.map((classroom) => (
                             <div
                               key={classroom.id}
-                              className="flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100"
+                              className={`flex items-center justify-between gap-2 p-2 rounded-md hover:bg-slate-100 ${
+                                classroom.isUnavailable ? "opacity-60" : ""
+                              }`}
                             >
                               <div className="flex items-start gap-2">
                                 <Checkbox
@@ -764,6 +912,7 @@ const ConcoursForm = ({
                                   checked={field.value.includes(
                                     classroom.id.toString()
                                   )}
+                                  disabled={classroom.isUnavailable}
                                   onCheckedChange={(checked) => {
                                     if (checked) {
                                       field.onChange([
@@ -781,14 +930,26 @@ const ConcoursForm = ({
                                 />
                                 <label
                                   htmlFor={`classroom-${classroom.id}`}
-                                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                  className={`text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer ${
+                                    classroom.isUnavailable
+                                      ? "text-slate-500"
+                                      : ""
+                                  }`}
                                 >
                                   {classroom.nom_du_local} - Capacité:{" "}
                                   {classroom.capacite}
                                 </label>
                               </div>
-                              <span className="text-green-600 font-medium text-sm px-2 py-1 bg-green-50 rounded-full">
-                                Disponible
+                              <span
+                                className={`font-medium text-sm px-2 py-1 rounded-full ${
+                                  classroom.isUnavailable
+                                    ? "text-red-600 bg-red-50"
+                                    : "text-green-600 bg-green-50"
+                                }`}
+                              >
+                                {classroom.isUnavailable
+                                  ? "Indisponible"
+                                  : "Disponible"}
                               </span>
                             </div>
                           ))

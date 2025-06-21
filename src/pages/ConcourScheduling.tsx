@@ -422,11 +422,30 @@ const ConcourScheduling = () => {
                               Locaux
                             </p>
                             <p className="text-sm">
-                              {Array.isArray(concour.locaux)
-                                ? concour.locaux.map(l => l.nom_local || l.nom_du_local).join(", ")
-                                : typeof concour.locaux === 'string'
-                                  ? JSON.parse(concour.locaux).map(l => l.nom_local).join(", ")
-                                  : 'N/A'}
+                              {(() => {
+                                let locaux = concour.locaux;
+                                if (Array.isArray(locaux) && locaux.length && typeof locaux[0] === 'object') {
+                                  return locaux.map(l => l.nom_local || l.nom_du_local).join(", ");
+                                }
+                                if (Array.isArray(locaux)) {
+                                  // Cas tableau d'IDs
+                                  return locaux.map(id => getLocalName(id)).join(", ");
+                                }
+                                if (typeof locaux === "string") {
+                                  try {
+                                    const parsed = JSON.parse(locaux);
+                                    if (Array.isArray(parsed)) {
+                                      if (typeof parsed[0] === 'object') {
+                                        return parsed.map(l => l.nom_local || l.nom_du_local).join(", ");
+                                      }
+                                      // Si IDs
+                                      return parsed.map(id => getLocalName(id)).join(", ");
+                                    }
+                                  } catch (e) {}
+                                  return locaux;
+                                }
+                                return '';
+                              })()}
                             </p>
                           </div>
                         </div>
