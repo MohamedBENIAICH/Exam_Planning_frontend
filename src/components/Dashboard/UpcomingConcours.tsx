@@ -14,7 +14,9 @@ import {
   ChevronUp,
   ChevronDown,
   User,
+  Users,
 } from "lucide-react";
+import ClassroomAssignments from "@/components/ClassroomAssignments/ClassroomAssignments";
 import {
   Card,
   CardContent,
@@ -114,6 +116,7 @@ const ConcoursSection = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingConcour, setEditingConcour] = useState<Concours | null>(null);
+  const [showClassroomAssignments, setShowClassroomAssignments] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [sendingConvocations, setSendingConvocations] = useState<{ [key: number]: boolean }>({});
   const { toast } = useToast();
@@ -642,6 +645,16 @@ const ConcoursSection = ({
                           )}
                       </div>
                     </div>
+                    <div className="flex justify-end pt-2">
+                      <Button 
+                        variant="outline"
+                        onClick={() => setShowClassroomAssignments(true)}
+                        className="flex items-center gap-2"
+                      >
+                        <Users className="h-4 w-4" />
+                        Voir les affectations des salles
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -764,6 +777,18 @@ const ConcoursSection = ({
                 )}
               </div>
             </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Classroom Assignments Dialog */}
+      <Dialog open={showClassroomAssignments} onOpenChange={setShowClassroomAssignments}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {selectedConcours && (
+            <ClassroomAssignments 
+              concoursId={selectedConcours.id} 
+              onClose={() => setShowClassroomAssignments(false)} 
+            />
           )}
         </DialogContent>
       </Dialog>

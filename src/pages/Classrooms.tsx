@@ -202,7 +202,7 @@ const Classrooms = () => {
                     <div>
                       <p className="text-sm font-medium">Équipement</p>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {classroom.equipment.length > 0 ? (
+                        {Array.isArray(classroom.equipment) && classroom.equipment.length > 0 ? (
                           classroom.equipment.map((item, i) => (
                             <Badge key={i} variant="outline">
                               {item}

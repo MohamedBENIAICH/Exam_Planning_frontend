@@ -8,14 +8,32 @@ const API_URL = import.meta.env?.VITE_API_URL || "http://localhost:8000/api";
  */
 export const createClassroom = async (classroomData) => {
   try {
-    // Format the data according to the backend API requirements
+    // Ensure we have the required fields with proper fallbacks
     const formattedData = {
-      nom_du_local: classroomData.name,
-      departement: classroomData.building,
-      capacite: classroomData.capacity,
-      liste_des_equipements: classroomData.equipment,
-      disponible_pour_planification: classroomData.isAvailable,
+      nom_du_local: classroomData.nom_du_local || classroomData.name,
+      // Map batiment to departement since that's what the form is sending
+      departement: classroomData.departement || classroomData.batiment,
+      capacite: parseInt(classroomData.capacite || classroomData.capacity, 10),
+      // Handle equipment - ensure it's an array
+      liste_des_equipements: Array.isArray(classroomData.equipements) 
+        ? classroomData.equipements 
+        : (classroomData.equipements ? [classroomData.equipements] : [])
     };
+    
+    // Log the data being sent for debugging
+    console.log('Form data before sending:', {
+      ...formattedData,
+      // Log the original data for comparison
+      originalData: {
+        nom_du_local: classroomData.nom_du_local,
+        name: classroomData.name,
+        departement: classroomData.departement,
+        batiment: classroomData.batiment,
+        capacite: classroomData.capacite,
+        capacity: classroomData.capacity,
+        equipements: classroomData.equipements
+      }
+    });
 
     console.log("Sending data to API:", formattedData);
     console.log("API URL:", `${API_URL}/classrooms`);
