@@ -219,15 +219,6 @@ Cette gestion permet un suivi précis et centralisé des absences lors des exame
   - Ouvrez les outils de développement de votre navigateur (généralement F12) et vérifiez la console pour des erreurs JavaScript ou des problèmes de connexion réseau (par exemple, échec de la connexion à l'API backend).
   - Assurez-vous que le backend est bien démarré et accessible depuis le frontend (généralement sur `http://localhost:8000`).
 
-## Contributeurs et Contribution
-
-- [MohamedBENIAICH](https://github.com/MohamedBENIAICH)
-- [DiarraIbra](https://github.com/DiarraIbra)
-
-N'hésitez pas à contribuer à ce projet en ouvrant des issues ou des pull requests. Veuillez suivre les conventions de codage React.
-
----
-
 # Annexe : Cohérence des Pages de Concours
 
 (Le contenu suivant provient de COHERENCE_CONCOURS_IMPLEMENTATION.md)
@@ -372,3 +363,10 @@ interface ConcoursSectionProps {
 - **Page "Concours passés" :** `http://localhost:8081/past-concours`
 
 Chaque page a maintenant sa logique appropriée et ses fonctionnalités adaptées au contexte d'utilisation.
+## Contributeurs et Contribution
+
+- [MohamedBENIAICH](https://github.com/MohamedBENIAICH)
+- [DiarraIbra](https://github.com/DiarraIbra)
+
+N'hésitez pas à contribuer à ce projet en ouvrant des issues ou des pull requests. Veuillez suivre les conventions de codage React.
+
