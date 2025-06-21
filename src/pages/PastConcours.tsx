@@ -79,6 +79,12 @@ useEffect(() => {
     );
   };
 
+  const handleConcoursDelete = (deletedConcoursId: number) => {
+    setConcours((prevConcours) =>
+      prevConcours.filter((concour) => concour.id !== deletedConcoursId)
+    );
+  };
+
   return (
     <div className="min-h-screen flex">
       <Sidebar />
@@ -94,6 +100,8 @@ useEffect(() => {
             loading={loading}
             error={error}
             onConcoursUpdate={handleConcoursUpdate}
+            onConcoursDelete={handleConcoursDelete}
+            showEditButton={false}
           />
         </div>
       </div>

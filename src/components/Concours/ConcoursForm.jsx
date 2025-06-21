@@ -37,31 +37,6 @@ import {
 } from "@/components/ui/dialog";
 import ImportCSVforConcours from "./ImportCSVforConcours";
 
-const formSchema = z.object({
-  titre: z.string().min(1, "Le titre est requis"),
-  description: z.string().min(1, "La description est requise"),
-  date_concours: z.date({ required_error: "La date est requise" }),
-  heure_debut: z.string().min(1, "L'heure de début est requise"),
-  heure_fin: z.string().min(1, "L'heure de fin est requise"),
-  locaux: z.array(z.string()).min(1, "Au moins un local est requis"),
-  type_epreuve: z.enum(["écrit", "oral"], {
-    required_error: "Le type d'épreuve est requis",
-  }),
-  candidats: z
-    .array(
-      z.object({
-        CNE: z.string(),
-        CIN: z.string(),
-        nom: z.string(),
-        prenom: z.string(),
-        email: z.string().email(),
-      })
-    )
-    .min(1, "Au moins un candidat est requis"),
-  professeurs: z.array(z.string()).optional(),
-  superviseurs: z.array(z.string()).optional(),
-});
-
 const ConcoursForm = ({
   concour,
   onSubmit,
@@ -78,6 +53,7 @@ const ConcoursForm = ({
   const [selectedCandidats, setSelectedCandidats] = useState(
     concour?.candidats || []
   );
+  const [isEditMode] = useState(!!concour);
 
   // Locaux/classrooms logic
   const [selectedClassroomType, setSelectedClassroomType] = useState("amphi");
@@ -95,6 +71,30 @@ const ConcoursForm = ({
   const [supervisorsByDepartment, setSupervisorsByDepartment] = useState([]);
   const [loadingSupervisors, setLoadingSupervisors] = useState(false);
   const [showSuperviseursList, setShowSuperviseursList] = useState(false);
+
+  // Schéma de validation dynamique
+  const formSchema = z.object({
+    titre: z.string().min(1, "Le titre est requis"),
+    description: z.string().optional(),
+    date_concours: z.date({ required_error: "La date est requise" }),
+    heure_debut: z.string().min(1, "L'heure de début est requise"),
+    heure_fin: z.string().min(1, "L'heure de fin est requise"),
+    type_epreuve: z.string().min(1, "Le type d'épreuve est requis"),
+    locaux: z
+      .array(z.string())
+      .min(1, "Veuillez sélectionner au moins un local"),
+    candidats: z.array(z.any()),
+    professeurs: isEditMode
+      ? z.array(z.string())
+      : z
+          .array(z.string())
+          .min(1, "Veuillez sélectionner au moins un professeur"),
+    superviseurs: isEditMode
+      ? z.array(z.string())
+      : z
+          .array(z.string())
+          .min(1, "Veuillez sélectionner au moins un superviseur"),
+  });
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -421,169 +421,70 @@ const ConcoursForm = ({
   }, [selectedDepartment, toast]);
 
   const handleFormSubmit = async (values) => {
+    // Validation manuelle pour la création
+    if (!isEditMode) {
+      if (values.professeurs.length === 0) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez sélectionner au moins un professeur.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (values.superviseurs.length === 0) {
+        toast({
+          title: "Erreur",
+          description: "Veuillez sélectionner au moins un superviseur.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     try {
-      // Prepare locaux array with nom_local and capacity
-      const allLocaux = [...amphitheaters, ...availableClassrooms];
-      const locaux = values.locaux.map(id => {
-        const local = allLocaux.find(l => l.id.toString() === id);
-        return {
-          nom_local: local?.nom_du_local || id,
-          capacity: local?.capacite || 20 // Default capacity if not specified
-        };
-      });
-      
-      console.log('Prepared locaux:', locaux);
+      const submissionData = { ...values };
 
-      // Prepare payload with new structure
-      const payload = {
-        titre: values.titre,
-        description: values.description,
-        date_concours: format(values.date_concours, "yyyy-MM-dd"),
-        heure_debut: values.heure_debut,
-        heure_fin: values.heure_fin,
-        type_epreuve: values.type_epreuve,
-        locaux: locaux,
-        candidats: values.candidats.map((c) => ({
-          CNE: c.CNE,
-          CIN: c.CIN,
-          nom: c.nom,
-          prenom: c.prenom,
-          email: c.email,
-        })),
-        professeurs: values.professeurs ? values.professeurs.map(Number) : [],
-        superviseurs: values.superviseurs ? values.superviseurs.map(Number) : [],
-      };
-
-      console.log("Payload sent to backend:", payload);
-
-      // Determine if this is an update or create operation
-      const isUpdate = concour && concour.id;
-      const url = isUpdate
-        ? `http://localhost:8000/api/concours/${concour.id}`
-        : "http://localhost:8000/api/concours";
-      const method = isUpdate ? "PUT" : "POST";
-
-      const response = await fetch(url, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-        credentials: "omit",
-      });
-
-      // Get response text first to debug what we're receiving
-      const responseText = await response.text();
-      console.log("Raw response:", responseText);
-      console.log("Response status:", response.status);
-      console.log(
-        "Response headers:",
-        Object.fromEntries(response.headers.entries())
-      );
-
-      // Check if response is successful
-      if (!response.ok) {
-        let errorData;
-
-        // Try to parse as JSON, but handle HTML responses gracefully
-        if (
-          responseText.trim().startsWith("{") ||
-          responseText.trim().startsWith("[")
-        ) {
-          try {
-            errorData = JSON.parse(responseText);
-          } catch (parseError) {
-            console.error(
-              "Failed to parse error response as JSON:",
-              parseError
+      // Assurez-vous que les locaux sont bien un JSON stringifié d'objets
+      if (Array.isArray(submissionData.locaux)) {
+        const locauxDetails = submissionData.locaux
+          .map((localId) => {
+            return allLocaux.find(
+              (l) => l.id.toString() === localId.toString()
             );
-            errorData = {
-              message: `HTTP ${response.status}: ${response.statusText}`,
-            };
-          }
-        } else {
-          // If it's HTML or other non-JSON, create a generic error
-          console.warn(
-            "Received non-JSON error response:",
-            responseText.substring(0, 200)
-          );
-          errorData = {
-            message: `HTTP ${response.status}: ${response.statusText}`,
-          };
-        }
-
-        // Handle specific conflict errors
-        if (response.status === 409 && errorData.conflicts) {
-          const conflictMessages = errorData.conflicts
-            .map(
-              (conflict) =>
-                `Salle "${conflict.local}" : Conflit avec "${conflict.conflict_with}" (${conflict.date} de ${conflict.heure_debut} à ${conflict.heure_fin})`
-            )
-            .join("\n");
-
-          throw new Error(
-            `Conflit de disponibilité des salles:\n${conflictMessages}`
-          );
-        }
-
-        throw new Error(
-          errorData.message ||
-            `Erreur lors de ${
-              isUpdate ? "la modification" : "la création"
-            } du concours`
-        );
+          })
+          .filter(Boolean); // Filtrer les valeurs undefined
+        submissionData.locaux = JSON.stringify(locauxDetails);
       }
 
-      // Parse successful response data
-      let data;
-
-      // Check if the response text looks like JSON
-      if (
-        responseText.trim().startsWith("{") ||
-        responseText.trim().startsWith("[")
-      ) {
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error(
-            "Failed to parse success response as JSON:",
-            parseError
-          );
-          console.log("Response text that failed to parse:", responseText);
-          // If parsing fails but the request was successful, just use a default response
-          data = { success: true, message: "Concours créé avec succès" };
-        }
-      } else {
-        // If the response is not JSON (like HTML success page), create a default success response
-        console.log("Received non-JSON success response, assuming success");
-        data = { success: true, message: "Concours créé avec succès" };
-      }
-
-      toast({
-        title: "Succès",
-        description: isUpdate ? "Concours modifié !" : "Concours enregistré !",
-      });
-
-      // Add debugging for the onSubmit callback
-      if (onSubmit) {
-        try {
-          console.log("Calling onSubmit with data:", data);
-          onSubmit(data);
-        } catch (callbackError) {
-          console.error("Error in onSubmit callback:", callbackError);
-          // Don't show error toast here since the concours was created successfully
-        }
-      }
+      await onSubmit(submissionData);
     } catch (error) {
       console.error("Form submission error:", error);
       toast({
-        title: "Erreur",
-        description:
-          error.message || "Erreur lors de l'enregistrement du concours",
+        title: "Erreur de soumission",
+        description: error.message || "Une erreur est survenue.",
         variant: "destructive",
       });
     }
+  };
+
+  const onInvalid = (errors) => {
+    console.error("Form errors", errors);
+    // Affiche un toast pour chaque champ en erreur
+    if (errors.professeurs) {
+      toast({
+        title: "Erreur de validation",
+        description: "Au moins un professeur est requis.",
+        variant: "destructive",
+      });
+    }
+    if (errors.superviseurs) {
+      toast({
+        title: "Erreur de validation",
+        description: "Au moins un superviseur est requis.",
+        variant: "destructive",
+      });
+    }
+    // Vous pouvez ajouter d'autres toasts pour d'autres champs si nécessaire
   };
 
   // Debug: show form errors
@@ -592,7 +493,7 @@ const ConcoursForm = ({
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit(handleFormSubmit)}
+        onSubmit={form.handleSubmit(handleFormSubmit, onInvalid)}
         className="space-y-6"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1098,7 +999,7 @@ const ConcoursForm = ({
             <FormItem className="space-y-4 mt-6">
               <FormLabel className="flex items-center gap-1 text-lg font-medium">
                 <Users className="h-5 w-5" />
-                Les superviseurs (optionnel)
+                Les superviseurs
               </FormLabel>
               <div>
                 <div className="flex items-center justify-between mb-2">

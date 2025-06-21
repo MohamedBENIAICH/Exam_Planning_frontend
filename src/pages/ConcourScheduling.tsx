@@ -142,10 +142,15 @@ const ConcourScheduling = () => {
     fetchConcours();
   }, []);
 
-  const handleAddEditConcour = async (concour) => {
-    console.log("handleAddEditConcour called. editingConcour:", editingConcour);
-    console.log("Sending payload:", JSON.stringify(concour, null, 2));
+  const handleAddEditConcour = async (concourData) => {
     try {
+      const submissionData = { ...concourData };
+
+      // Ensure `locaux` is a JSON string if it's an array of objects
+      if (Array.isArray(submissionData.locaux)) {
+        submissionData.locaux = JSON.stringify(submissionData.locaux);
+      }
+
       setLoading(true);
       if (editingConcour) {
         // Update concours
@@ -154,25 +159,25 @@ const ConcourScheduling = () => {
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(concour),
+            body: JSON.stringify(submissionData),
           }
         );
         console.log("Update response status:", response.status);
         if (!response.ok) throw new Error("Erreur lors de la modification");
         toast({
           title: "Succès",
-          description: "Le concours a été modifié avec succès.",
+          description: "Le concours a été modifié avec succès. Les convocations mises à jour avec QR codes ont été envoyées automatiquement aux candidats.",
         });
         setEditingConcour(null);
         setIsDialogOpen(false);
         fetchConcours(); // Refresh list after update
       } else {
         // Create concours
-        console.log("Creating new concours with payload:", JSON.stringify(concour, null, 2));
+        console.log("Creating new concours with payload:", JSON.stringify(submissionData, null, 2));
         const response = await fetch("http://127.0.0.1:8000/api/concours", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(concour),
+          body: JSON.stringify(submissionData),
         });
         console.log("Create response status:", response.status);
         if (!response.ok) throw new Error("Erreur lors de l'ajout");
@@ -204,31 +209,26 @@ const ConcourScheduling = () => {
   const handleDeleteConcour = async (concourId) => {
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/concours/${concourId}/cancel`,
+        `http://127.0.0.1:8000/api/concours/${concourId}`,
         {
-          method: "POST",
+          method: "DELETE",
         }
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to cancel concours");
-      }
+      if (!response.ok) throw new Error("La suppression du concours a échoué");
 
       toast({
         title: "Succès",
-        description: "Le concours a été annulé avec succès.",
+        description: "Le concours a été supprimé avec succès.",
       });
 
-      // Remove the concours from the list
-      setConcours((prevConcours) =>
-        prevConcours.filter((concour) => concour.id !== concourId)
-      );
-      fetchConcours(); // Refresh list after delete
+      // Refetch the concours list to reflect the deletion
+      fetchConcours();
     } catch (error) {
-      console.error("Error cancelling concours:", error);
       toast({
         title: "Erreur",
-        description: "Une erreur s'est produite lors de l'annulation du concours",
+        description:
+          error.message ||
+          "Une erreur s'est produite lors de la suppression du concours.",
         variant: "destructive",
       });
     } finally {
@@ -423,8 +423,10 @@ const ConcourScheduling = () => {
                             </p>
                             <p className="text-sm">
                               {Array.isArray(concour.locaux)
-                                ? concour.locaux.map(id => getLocalName(id)).join(", ")
-                                : concour.locaux}
+                                ? concour.locaux.map(l => l.nom_local || l.nom_du_local).join(", ")
+                                : typeof concour.locaux === 'string'
+                                  ? JSON.parse(concour.locaux).map(l => l.nom_local).join(", ")
+                                  : 'N/A'}
                             </p>
                           </div>
                         </div>
@@ -536,76 +538,103 @@ const ConcourScheduling = () => {
           if (!open) setSelectedConcour(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-w-4xl p-8">
           <DialogHeader>
             <DialogTitle>Détails du Concours</DialogTitle>
           </DialogHeader>
           {selectedConcour && (
-            <div className="space-y-4">
-              <div>
-                <strong>Description:</strong> {selectedConcour.description}
-              </div>
-              <div>
-                <strong>Date:</strong>{" "}
-                {format(new Date(selectedConcour.date_concours), "PPP")}
-              </div>
-              <div>
-                <strong>Heure:</strong> {selectedConcour.heure_debut} -{" "}
-                {selectedConcour.heure_fin}
-              </div>
-              <div>
-                <strong>Locaux:</strong>{" "}
-                {Array.isArray(selectedConcour.locaux)
-                  ? selectedConcour.locaux.map(id => getLocalName(id)).join(", ")
-                  : selectedConcour.locaux}
-              </div>
-              <div>
-                <strong>Type d'épreuve:</strong> {selectedConcour.type_epreuve}
-              </div>
-              <div>
-                <strong>Superviseurs:</strong>{" "}
-                <ul className="list-disc ml-6">
-                  {Array.isArray(selectedConcour.superviseurs) &&
-                  selectedConcour.superviseurs.length > 0 ? (
-                    selectedConcour.superviseurs.map((s) => (
-                      <li key={s.id}>
-                        {`${s.prenom} ${s.nom}`}
-                      </li>
-                    ))
-                  ) : (
-                    <li>Aucun</li>
-                  )}
-                </ul>
-              </div>
-              <div>
-                <strong>Professeurs:</strong>{" "}
-                <ul className="list-disc ml-6">
-                  {Array.isArray(selectedConcour.professeurs) &&
-                  selectedConcour.professeurs.length > 0 ? (
-                    selectedConcour.professeurs.map((p) => (
-                      <li key={p.id}>
-                        {`${p.prenom} ${p.nom}`}
-                      </li>
-                    ))
-                  ) : (
-                    <li>Aucun</li>
-                  )}
-                </ul>
-              </div>
-              <div>
-                <strong>Candidats:</strong>
-                <ul className="list-disc ml-6">
-                  {Array.isArray(selectedConcour.candidats) &&
-                  selectedConcour.candidats.length > 0 ? (
-                    selectedConcour.candidats.map((c) => (
-                      <li key={c.id}>
-                        {`${c.prenom} ${c.nom}`}
-                      </li>
-                    ))
-                  ) : (
-                    <li>Aucun</li>
-                  )}
-                </ul>
+            <div className="space-y-6 p-2">
+              <h2 className="text-2xl font-bold text-center mb-2">Détails du Concours</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                <div className="bg-slate-50 rounded-lg p-4 shadow-sm space-y-3">
+                  <div className="flex items-center gap-2 text-lg font-semibold text-slate-700 mb-2">
+                    <Info className="h-5 w-5 text-blue-500" />
+                    Description
+                  </div>
+                  <div className="text-slate-800 text-base">{selectedConcour.description}</div>
+                  <div className="flex items-center gap-2 mt-4">
+                    <CalendarIcon className="h-5 w-5 text-green-600" />
+                    <span className="font-medium">Date :</span>
+                    <span>{format(new Date(selectedConcour.date_concours), "PPP")}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ClockIcon className="h-5 w-5 text-purple-600" />
+                    <span className="font-medium">Heure :</span>
+                    <span>{selectedConcour.heure_debut} - {selectedConcour.heure_fin}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Building className="h-5 w-5 text-orange-500" />
+                    <span className="font-medium">Locaux :</span>
+                    <span className="truncate">
+                      {(() => {
+                        let locaux = selectedConcour.locaux;
+                        if (Array.isArray(locaux) && locaux.length && typeof locaux[0] === 'object') {
+                          return locaux.map(l => l.nom_local || l.nom_du_local).join(", ");
+                        }
+                        if (Array.isArray(locaux)) {
+                          return locaux.map(id => getLocalName(id)).join(", ");
+                        }
+                        try {
+                          const parsed = JSON.parse(locaux);
+                          if (Array.isArray(parsed)) {
+                            return parsed.map(l => l.nom_local || l.nom_du_local).join(", ");
+                          }
+                        } catch (e) {}
+                        return locaux;
+                      })()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="font-medium">Type d'épreuve :</span>
+                    <span className="inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-semibold ml-1">
+                      {selectedConcour.type_epreuve}
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-slate-50 rounded-lg p-4 shadow-sm space-y-4">
+                  <div>
+                    <span className="font-semibold flex items-center gap-2 text-slate-700">
+                      <Users className="h-5 w-5 text-pink-500" /> Superviseurs
+                    </span>
+                    <ul className="list-disc ml-6 mt-1 text-slate-800">
+                      {Array.isArray(selectedConcour.superviseurs) && selectedConcour.superviseurs.length > 0 ? (
+                        selectedConcour.superviseurs.map((s) => (
+                          <li key={s.id}>{`${s.prenom} ${s.nom}`}</li>
+                        ))
+                      ) : (
+                        <li>Aucun</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <span className="font-semibold flex items-center gap-2 text-slate-700">
+                      <Users className="h-5 w-5 text-yellow-500" /> Professeurs
+                    </span>
+                    <ul className="list-disc ml-6 mt-1 text-slate-800">
+                      {Array.isArray(selectedConcour.professeurs) && selectedConcour.professeurs.length > 0 ? (
+                        selectedConcour.professeurs.map((p) => (
+                          <li key={p.id}>{`${p.prenom} ${p.nom}`}</li>
+                        ))
+                      ) : (
+                        <li>Aucun</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div>
+                    <span className="font-semibold flex items-center gap-2 text-slate-700">
+                      <Users className="h-5 w-5 text-green-500" /> Candidats
+                    </span>
+                    <ul className="list-disc ml-6 mt-1 text-slate-800">
+                      {Array.isArray(selectedConcour.candidats) && selectedConcour.candidats.length > 0 ? (
+                        selectedConcour.candidats.map((c) => (
+                          <li key={c.id}>{`${c.prenom} ${c.nom}`}</li>
+                        ))
+                      ) : (
+                        <li>Aucun</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           )}

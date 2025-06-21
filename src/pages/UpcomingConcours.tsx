@@ -61,6 +61,12 @@ const UpcomingConcours = () => {
     );
   };
 
+  const handleConcoursDelete = (deletedConcoursId: number) => {
+    setConcours((prevConcours) =>
+      prevConcours.filter((concour) => concour.id !== deletedConcoursId)
+    );
+  };
+
   useEffect(() => {
     const fetchConcours = async () => {
       try {
@@ -68,9 +74,9 @@ const UpcomingConcours = () => {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();
         if (Array.isArray(data)) {
-          setConcours(data);
+          setConcours(data); // Tous les concours à venir
         } else if (data.status === "success" && Array.isArray(data.data)) {
-          setConcours(data.data);
+          setConcours(data.data); // Tous les concours à venir
         } else {
           setError("Format de réponse API invalide");
         }
@@ -99,6 +105,7 @@ const UpcomingConcours = () => {
             loading={loading}
             error={error}
             onConcoursUpdate={handleConcoursUpdate}
+            onConcoursDelete={handleConcoursDelete}
           />
         </div>
       </div>

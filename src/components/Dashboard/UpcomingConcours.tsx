@@ -81,6 +81,7 @@ interface Concours {
   candidats: Candidat[];
   superviseurs: Superviseur[];
   professeurs: Professeur[];
+  classroom_assignments?: any[]; // For details modal
 }
 
 interface ConcoursSectionProps {
@@ -89,10 +90,12 @@ interface ConcoursSectionProps {
   loading: boolean;
   error: string | null;
   onConcoursUpdate: (updatedConcours: Concours) => void;
+  onConcoursDelete: (deletedConcoursId: number) => void;
   availableLocaux?: any[];
   availableProfesseurs?: any[];
   availableSuperviseurs?: any[];
   availableCandidats?: any[];
+  showEditButton?: boolean;
 }
 
 const ConcoursSection = ({
@@ -101,10 +104,12 @@ const ConcoursSection = ({
   loading,
   error,
   onConcoursUpdate,
+  onConcoursDelete,
   availableLocaux = [],
   availableProfesseurs = [],
   availableSuperviseurs = [],
   availableCandidats = [],
+  showEditButton = true,
 }: ConcoursSectionProps) => {
   const [showCandidates, setShowCandidates] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -120,6 +125,7 @@ const ConcoursSection = ({
   const [formLoading, setFormLoading] = useState(false);
   const [sendingConvocations, setSendingConvocations] = useState<{ [key: number]: boolean }>({});
   const { toast } = useToast();
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // Sort concours by date
   const sortedConcours = [...concours].sort(
@@ -226,7 +232,10 @@ const ConcoursSection = ({
           }
         );
         if (!response.ok) throw new Error("Erreur lors de la modification");
-        toast({ title: "Succès", description: "Concours modifié !" });
+        toast({ 
+          title: "Succès", 
+          description: "Concours modifié ! Les convocations mises à jour avec QR codes ont été envoyées automatiquement aux candidats." 
+        });
         onConcoursUpdate({ ...concour, id: editingConcour.id } as Concours);
         setEditingConcour(null);
         setIsDialogOpen(false);
@@ -270,28 +279,28 @@ const ConcoursSection = ({
     setIsDeleting(true);
     try {
       const response = await fetch(
-        `http://127.0.0.1:8000/api/concours/${concoursId}/cancel`,
+        `http://127.0.0.1:8000/api/concours/${concoursId}`,
         {
-          method: "POST",
+          method: "DELETE",
         }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to cancel concours");
+        throw new Error("La suppression du concours a échoué");
       }
 
       toast({
         title: "Succès",
-        description: "Le concours a été annulé avec succès.",
+        description: "Le concours a été supprimé avec succès.",
       });
 
-      // Remove the concours from the list
-      onConcoursUpdate({ ...concoursToDelete!, id: -1 }); // Mark as deleted (parent should filter out)
-    } catch (error) {
-      console.error("Error cancelling concours:", error);
+      // Remove the concours from the list using the new prop
+      onConcoursDelete(concoursId);
+    } catch (error: any) {
+      console.error("Erreur lors de la suppression du concours:", error);
       toast({
         title: "Erreur",
-        description: "Une erreur s'est produite lors de l'annulation du concours",
+        description: error.message || "Une erreur s'est produite lors de la suppression du concours.",
         variant: "destructive",
       });
     } finally {
@@ -306,9 +315,26 @@ const ConcoursSection = ({
     setCurrentPage(1);
   }, [concours]);
 
-  const handleShowDetails = (concours: Concours) => {
-    setSelectedConcours(concours);
+  const handleShowDetails = async (concours: Concours) => {
+    setDetailLoading(true);
     setIsDetailDialogOpen(true);
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/concours/${concours.id}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch concours details");
+      }
+      const data = await response.json();
+      setSelectedConcours(data);
+    } catch (error) {
+      console.error("Error fetching details:", error);
+      toast({
+        title: "Erreur",
+        description: "Impossible de charger les détails du concours.",
+        variant: "destructive",
+      });
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   const handleDeleteClick = (concours: Concours) => {
@@ -378,138 +404,152 @@ const ConcoursSection = ({
 
   // Empty state
   const renderEmptyState = () => (
-    <div className="text-center py-12 flex flex-col items-center gap-2">
-      <Calendar className="h-12 w-12 text-gray-300" />
-      <p className="font-medium text-gray-500 mt-2">Aucun concours</p>
-      <p className="text-sm text-gray-400">Les concours apparaîtront ici</p>
+    <div className="text-center py-10">
+      <h3 className="text-xl font-semibold">Aucun concours trouvé</h3>
+      <p className="text-gray-500">Il n'y a pas de concours à afficher pour le moment.</p>
     </div>
   );
 
   // Main concours list grouped by date
   const renderConcoursGroups = () => {
-    const today = new Date();
-    return Object.entries(groupedConcours).map(([dateKey, concoursForDate]) => {
-      const concoursDate = new Date(dateKey);
-      const isToday = format(today, "yyyy-MM-dd") === dateKey;
-      const daysUntil = Math.ceil(
-        (concoursDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      return (
-        <div key={dateKey} className="mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                isToday ? "bg-blue-100 text-blue-600" : "bg-gray-100 text-gray-600"
-              }`}
-            >
-              <Calendar className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="font-medium">
-                {format(new Date(dateKey), "EEEE d MMMM yyyy", { locale: fr })}
-              </h3>
-              {isToday ? (
-                <Badge variant="default" className="mt-1">
-                  Aujourd'hui
-                </Badge>
-              ) : daysUntil <= 7 ? (
-                <Badge variant="outline" className="mt-1">
-                  Dans {daysUntil} jour{daysUntil > 1 ? "s" : ""}
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="space-y-3 pl-12">
-            {concoursForDate.map((concour) => (
-              <Card
-                key={concour.id}
-                className="border border-gray-200 hover:shadow-md transition-all duration-300"
-              >
-                <CardContent className="p-4">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-medium text-gray-900">
-                          {concour.titre}
-                        </h3>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span>{concour.type_epreuve}</span>
-                        <span>•</span>
-                        <span>{concour.status}</span>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {concour.heure_debut} - {concour.heure_fin}
-                      </Badge>
-                      <Badge variant="secondary" className="flex items-center gap-1">
-                        <Building className="h-3 w-3" />
-                        {concour.locaux}
-                      </Badge>
-                    </div>
+    return Object.keys(groupedConcours).map((date) => (
+      <div key={date}>
+        <h3 className="text-lg font-semibold my-4">
+          {format(new Date(date), "EEEE, d MMMM yyyy", { locale: fr })}
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+          {groupedConcours[date].map((concours) => (
+            <Card key={concours.id} className="flex flex-col">
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle>{concours.titre}</CardTitle>
+                    <CardDescription>{concours.description}</CardDescription>
                   </div>
-                  <div className="mt-2 text-gray-700 text-sm">{concour.description}</div>
-                </CardContent>
-                <CardFooter className="flex justify-end gap-2 p-4 pt-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleShowDetails(concour)}
-                  >
-                    <Info className="h-4 w-4 mr-2" />
-                    Détail
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleSendConvocations(concour.id)}
-                    disabled={sendingConvocations[concour.id]}
-                    className="mr-2"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    {sendingConvocations[concour.id]
-                      ? "Envoi..."
-                      : "Envoyer convocations candidats"
-                    }
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDownloadReport(concour.id)}
-                    className="mr-2"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Compte Rendu
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditConcour(concour)}
-                    className="mr-2"
-                  >
-                    Modifier
-                  </Button>
+                  <Badge variant={concours.status === 'annulé' ? 'destructive' : 'default'}>
+                    {format(new Date(concours.date_concours), "dd-MM-yyyy")}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-grow grid grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center text-sm text-gray-500 mb-2">
+                    <Clock className="w-4 h-4 mr-2" />
+                    <span>
+                      {concours.heure_debut} - {concours.heure_fin}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Building className="w-4 h-4 mr-2" />
+                    <span>
+                      {
+                        Array.isArray(concours.locaux)
+                          ? concours.locaux.map((l: any) => l.nom_local || l.nom_du_local).join(", ")
+                          : typeof concours.locaux === 'string'
+                            ? (() => {
+                                try {
+                                  const parsed = JSON.parse(concours.locaux);
+                                  return Array.isArray(parsed) ? parsed.map(l => l.nom_local).join(", ") : concours.locaux;
+                                } catch (e) {
+                                  return concours.locaux;
+                                }
+                              })()
+                            : 'N/A'
+                      }
+                    </span>
+                  </div>
+                </div>
+                <div className="col-span-1">
+                  {concours.superviseurs && concours.superviseurs.length > 0 && (
+                    <div className="mb-2">
+                      <p className="font-semibold flex items-center">
+                        <Users className="w-4 h-4 mr-2" />
+                        Superviseurs
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {concours.superviseurs.map((s) => `${s.nom} ${s.prenom}`).join(", ")}
+                      </p>
+                    </div>
+                  )}
+                  {concours.professeurs && concours.professeurs.length > 0 && (
+                    <div className="mb-2">
+                      <p className="font-semibold flex items-center">
+                        <Users className="w-4 h-4 mr-2" />
+                        Professeurs
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {concours.professeurs.map((p) => `${p.nom} ${p.prenom}`).join(", ")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="col-span-2">
+                  <div className="flex items-center text-sm text-gray-500 mb-2">
+                    <Users className="w-4 h-4 mr-2" />
+                    <span>{concours.candidats.length} au total</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Info className="w-4 h-4 mr-2" />
+                    <span>Type d'épreuve: {concours.type_epreuve}</span>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="flex-col items-stretch pt-4">
+                <div className="flex justify-between items-center mb-4">
+                  {showEditButton && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleEditConcour(concours)}
+                      disabled={concours.status === 'annulé'}
+                    >
+                      Modifier
+                    </Button>
+                  )}
                   <Button
                     variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      setConcoursToDelete(concour);
-                      setIsDeleteDialogOpen(true);
-                    }}
+                    onClick={() => handleDeleteClick(concours)}
+                    disabled={concours.status === 'annulé'}
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="w-4 h-4 mr-2" />
                     Supprimer
                   </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
+                  <Button variant="ghost" onClick={() => handleShowDetails(concours)}>
+                    <Info className="w-4 h-4 mr-2" />
+                    Détail
+                  </Button>
+                </div>
+                <div className="border-t pt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full mb-2"
+                    onClick={() => handleSendConvocations(concours.id)}
+                    disabled={sendingConvocations[concours.id] || concours.status === 'annulé'}
+                  >
+                    {sendingConvocations[concours.id] ? (
+                      "Envoi en cours..."
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4 mr-2" />
+                        Envoyer convocations candidats
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => handleDownloadReport(concours.id)}
+                    disabled={concours.status === 'annulé'}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Compte Rendu
+                  </Button>
+                </div>
+              </CardFooter>
+            </Card>
+          ))}
         </div>
-      );
-    });
+      </div>
+    ));
   };
 
   return (
@@ -552,232 +592,67 @@ const ConcoursSection = ({
         }}
       >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-lg shadow-lg">
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle className="text-xl font-semibold text-gray-800">
-              Détails du Concours
-            </DialogTitle>
-            {selectedConcours && (
-              <p className="text-gray-500 font-medium">{selectedConcours.titre}</p>
-            )}
+          <DialogHeader>
+            <DialogTitle>Détails du Concours</DialogTitle>
           </DialogHeader>
-          {selectedConcours && (
-            <>
-              <div className="space-y-6 py-2">
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-md">
-                      <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
-                        Informations générales
-                      </h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Description:</span>
-                          <span className="font-medium">{selectedConcours.description}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Type d'épreuve:</span>
-                          <span className="font-medium">{selectedConcours.type_epreuve}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Status:</span>
-                          <span className="font-medium">{selectedConcours.status}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-md">
-                      <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
-                        Localisation
-                      </h3>
-                      <div className="space-y-1">
-                        <p className="font-medium text-gray-800">
-                          {Array.isArray(selectedConcours.locaux)
-                            ? selectedConcours.locaux.join(", ")
-                            : selectedConcours.locaux}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+          {detailLoading ? (
+            <div className="p-6 text-center">Chargement des détails...</div>
+          ) : selectedConcours && selectedConcours.classroom_assignments ? (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-bold">ÉTUDIANTS & PLACES</h3>
+                <Badge>
+                  {selectedConcours.classroom_assignments.length} au total
+                </Badge>
+              </div>
 
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-md">
-                      <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
-                        Horaire
-                      </h3>
-                      <div className="space-y-2">
-                        <div className="flex items-center">
-                          <span className="text-gray-600 mr-2">Date:</span>
-                          <span className="text-gray-800">
-                            {selectedConcours.date_concours ? format(new Date(selectedConcours.date_concours), "PPP", { locale: fr }) : "Non spécifié"}
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <span className="text-gray-600 mr-2">Heure:</span>
-                          <span className="text-gray-800">
-                            {selectedConcours.heure_debut} - {selectedConcours.heure_fin}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="bg-gray-50 p-4 rounded-md">
-                      <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
-                        Supervision
-                      </h3>
-                      <div className="space-y-2">
-                        {selectedConcours.superviseurs && selectedConcours.superviseurs.length > 0 && (
-                          <div>
-                            <span className="text-sm text-gray-600 font-medium">Surveillants:</span>
-                            <p className="font-medium text-gray-800">
-                              {selectedConcours.superviseurs.map((s: any) => `${s.prenom} ${s.nom}`).join(", ")}
-                            </p>
-                          </div>
-                        )}
-                        {selectedConcours.professeurs && selectedConcours.professeurs.length > 0 && (
-                          <div>
-                            <span className="text-sm text-gray-600 font-medium">Professeurs:</span>
-                            <p className="font-medium text-gray-800">
-                              {selectedConcours.professeurs.map((p: any) => `${p.prenom} ${p.nom}`).join(", ")}
-                            </p>
-                          </div>
-                        )}
-                        {(!selectedConcours.superviseurs || selectedConcours.superviseurs.length === 0) &&
-                          (!selectedConcours.professeurs || selectedConcours.professeurs.length === 0) && (
-                            <p className="font-medium text-gray-800">Aucun surveillant ou professeur assigné</p>
-                          )}
-                      </div>
-                    </div>
-                    <div className="flex justify-end pt-2">
-                      <Button 
-                        variant="outline"
-                        onClick={() => setShowClassroomAssignments(true)}
-                        className="flex items-center gap-2"
+              {Object.values(
+                selectedConcours.classroom_assignments.reduce((acc, assign) => {
+                  if (!assign.classroom) return acc;
+                  const classId = assign.classroom.id;
+                  if (!acc[classId]) {
+                    acc[classId] = {
+                      classroom: assign.classroom,
+                      candidats: [],
+                    };
+                  }
+                  if (assign.candidat) {
+                    acc[classId].candidats.push(assign.candidat);
+                  }
+                  return acc;
+                }, {})
+              ).map(({ classroom, candidats }: any) => (
+                <div key={classroom.id} className="mb-4 border rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-semibold">
+                      {classroom.nom_du_local} (Capacité : {classroom.capacite})
+                    </h4>
+                    <span className="text-sm text-gray-500">
+                      {candidats.length} / {classroom.capacite} places occupées
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                    {candidats.map((candidat: any, index: number) => (
+                      <div
+                        key={candidat.id}
+                        className="bg-gray-100 p-2 rounded-md"
                       >
-                        <Users className="h-4 w-4" />
-                        Voir les affectations des salles
-                      </Button>
-                    </div>
+                        <p className="font-medium">{candidat.nom} {candidat.prenom}</p>
+                        <p className="text-sm text-gray-600">Place : {index + 1}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              </div>
-              {/* CANDIDATES DROPDOWN AT BOTTOM, FULL WIDTH */}
-              <div className="pt-2 w-full">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCandidates(!showCandidates)}
-                  className="w-full flex items-center justify-center gap-2 border-gray-300 hover:bg-gray-50"
-                >
-                  {showCandidates ? (
-                    <>
-                      <ChevronUp className="h-4 w-4" />
-                      Masquer la liste des candidats
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-4 w-4" />
-                      Afficher la liste des candidats ({selectedConcours.candidats ? selectedConcours.candidats.length : 0})
-                    </>
-                  )}
-                </Button>
-                {showCandidates && (
-                  <div className="mt-4 bg-gray-50 p-4 rounded-md w-full">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-sm uppercase text-gray-500 font-medium">
-                        Candidats & Détails
-                      </h3>
-                      <span className="text-sm text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
-                        {selectedConcours.candidats ? selectedConcours.candidats.length : 0} au total
-                      </span>
-                    </div>
-                    {selectedConcours.candidats && selectedConcours.candidats.length === 0 ? (
-                      <div className="text-gray-500 italic p-4">Aucun candidat trouvé.</div>
-                    ) : (
-                      <div className="mt-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {(() => {
-                            // Ensure we have exactly two locaux
-                            let locaux: string[] = [];
-                            
-                            // Handle different possible types of selectedConcours.locaux
-                            if (Array.isArray(selectedConcours.locaux)) {
-                              // If it's an array, use it directly
-                              locaux = selectedConcours.locaux;
-                            } else if (typeof selectedConcours.locaux === 'string') {
-                              // If it's a string, try to parse it as JSON or split by comma
-                              try {
-                                const parsed = JSON.parse(selectedConcours.locaux);
-                                locaux = Array.isArray(parsed) ? parsed : [selectedConcours.locaux];
-                              } catch (e) {
-                                locaux = selectedConcours.locaux.split(',').map((s: string) => s.trim());
-                              }
-                            }
-                            
-                            // If no valid locaux are defined, use default ones
-                            const defaultLocaux = ['Salle 1', 'Salle 2'];
-                            const activeLocaux = locaux.length >= 2 ? locaux.slice(0, 2) : defaultLocaux;
-                            
-                            // Group students by their assigned local
-                            const studentsByLocal: Record<string, any[]> = {};
-                            
-                            // Initialize all locaux with empty arrays
-                            activeLocaux.forEach(local => {
-                              studentsByLocal[local] = [];
-                            });
-                            
-                            // Distribute students to locaux in a round-robin fashion
-                            selectedConcours.candidats.forEach((candidat: any, index: number) => {
-                              const localIndex = index % activeLocaux.length;
-                              const localName = activeLocaux[localIndex];
-                              studentsByLocal[localName].push(candidat);
-                            });
-                            
-                            // Render each local section with its students
-                            return activeLocaux.map((localName) => {
-                              const studentsInLocal = studentsByLocal[localName] || [];
-                              const localInfo = availableLocaux.find(l => l.nom_du_local === localName);
-                              const capacity = localInfo?.capacite || studentsInLocal.length;
-                              
-                              return (
-                                <div key={localName} className="border rounded-lg overflow-hidden bg-white">
-                                  <div className="bg-gray-50 px-4 py-2 border-b">
-                                    <div className="flex justify-between items-center">
-                                      <h4 className="font-medium text-gray-900">
-                                        {localName}
-                                      </h4>
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                          {studentsInLocal.length} / {capacity} places
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="divide-y">
-                                    {studentsInLocal.map((student, index) => (
-                                      <div 
-                                        key={`${localName}-${student.id}-${index}`} 
-                                        className="px-4 py-2 flex justify-between items-center hover:bg-gray-50"
-                                      >
-                                        <div className="flex items-center">
-                                          <span className="font-medium text-gray-900">
-                                            {student.nom} {student.prenom}
-                                          </span>
-                                        </div>
-                                        <span className="text-sm text-blue-600 font-medium">
-                                          Place {index + 1}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            });
-                          })()}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6">Aucune donnée de répartition disponible.</div>
           )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
+              Fermer
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
