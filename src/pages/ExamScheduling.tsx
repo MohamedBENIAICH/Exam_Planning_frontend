@@ -487,9 +487,10 @@ const ExamScheduling = () => {
         setEditingExam(null);
 
         // Show success message
-        toast.success(
-          `Examen ${isEditing ? "modifié" : "créé"} avec succès!`
-        );
+        toast({
+          title: "Succès",
+          description: `Examen ${isEditing ? "modifié" : "créé"} avec succès!`,
+        });
       } else {
         throw new Error(
           result.message || `Failed to ${isEditing ? "update" : "create"} exam`
@@ -497,11 +498,13 @@ const ExamScheduling = () => {
       }
     } catch (error) {
       console.error("Error saving exam:", error);
-      toast.error(
-        error instanceof Error
+      toast({
+        title: "Erreur",
+        description: error instanceof Error
           ? error.message
-          : "Une erreur s'est produite lors de la sauvegarde de l'examen"
-      );
+          : "Une erreur s'est produite lors de la sauvegarde de l'examen",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -525,7 +528,10 @@ const ExamScheduling = () => {
         throw new Error("Failed to cancel exam");
       }
 
-      toast.success("L'examen a été annulé et supprimé avec succès.");
+      toast({
+        title: "Succès",
+        description: "L'examen a été annulé et supprimé avec succès.",
+      });
 
       // Refresh the exams list to remove the deleted exam
       const examsResponse = await fetch("http://127.0.0.1:8000/api/exams/latest");
@@ -572,7 +578,11 @@ const ExamScheduling = () => {
       }
     } catch (error) {
       console.error("Error cancelling exam:", error);
-      toast.error("Une erreur s'est produite lors de l'annulation de l'examen");
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'annulation de l'examen",
+        variant: "destructive",
+      });
     } finally {
       setIsDeleteDialogOpen(false);
       setExamToDelete(null);

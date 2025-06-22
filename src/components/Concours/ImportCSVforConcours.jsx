@@ -1,39 +1,25 @@
-import React, { useState, useRef } from "react";
-import { Upload, Check, AlertCircle, FileSpreadsheet } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Upload, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import PropTypes from "prop-types";
 
 const REQUIRED_HEADERS = ["cne", "cin", "nom", "prenom", "email"];
 
-const ImportCSVforConcours = ({ onImportComplete }) => {
-  const [file, setFile] = useState(null);
-  const [parseError, setParseError] = useState(null);
-  const [parsedData, setParsedData] = useState([]);
+const ImportCSVforConcours = ({ onImportComplete, onClose }) => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
   const { toast } = useToast();
 
-  const resetState = () => {
-    setFile(null);
-    setParseError(null);
-    setParsedData([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setParseError(null);
-      parseCSV(selectedFile);
-    }
-  };
+    if (!selectedFile) return;
 
-  const parseCSV = async (selectedFile) => {
+    setIsLoading(true);
+    setError(null);
+
     try {
       const text = await selectedFile.text();
       const rows = text
@@ -43,7 +29,7 @@ const ImportCSVforConcours = ({ onImportComplete }) => {
 
       if (rows.length < 2) {
         throw new Error(
-          "Le fichier CSV doit contenir au moins une ligne d'en-tête et une ligne de données."
+          "Le fichier doit contenir au moins une ligne d'en-tête et une ligne de données"
         );
       }
 
@@ -51,151 +37,150 @@ const ImportCSVforConcours = ({ onImportComplete }) => {
       let delimiter = ";";
       if (rows[0].split(",").length > rows[0].split(";").length)
         delimiter = ",";
-      const csvHeaders = rows[0]
+
+      const headers = rows[0]
         .split(delimiter)
         .map((h) => h.trim().toLowerCase());
 
-      // Validate headers (case-insensitive)
+      // Validate headers
       const missingHeaders = REQUIRED_HEADERS.filter(
-        (h) => !csvHeaders.includes(h)
+        (h) => !headers.includes(h)
       );
       if (missingHeaders.length > 0) {
-        throw new Error(
-          `En-têtes manquants dans le CSV: ${missingHeaders.join(", ")}`
-        );
+        throw new Error(`En-têtes manquants : ${missingHeaders.join(", ")}`);
       }
 
       // Parse data rows
-      const data = rows.slice(1).map((row, idx) => {
-        const values = row.split(delimiter).map((v) => v.trim());
-        const candidat = {};
-        csvHeaders.forEach((header, i) => {
-          if (REQUIRED_HEADERS.includes(header)) {
-            if (header === "nom") candidat.nom = values[i] || "";
-            else if (header === "prenom") candidat.prenom = values[i] || "";
-            else if (header === "cne") candidat.CNE = values[i] || "";
-            else if (header === "cin") candidat.CIN = values[i] || "";
-            else if (header === "email") candidat.email = values[i] || "";
+      const candidates = [];
+      for (let i = 1; i < rows.length; i++) {
+        const values = rows[i].split(delimiter).map((v) => v.trim());
+        const candidate = {};
+
+        headers.forEach((header, index) => {
+          if (header && values[index] !== undefined) {
+            candidate[header] = values[index];
           }
         });
-        candidat.id = idx + 1; // Temporary ID for frontend
-        return candidat;
+
+        // Only add if required fields are present
+        if (candidate.cne && candidate.nom && candidate.prenom) {
+          candidates.push({
+            CNE: candidate.cne,
+            CIN: candidate.cin || "",
+            nom: candidate.nom,
+            prenom: candidate.prenom,
+            email: candidate.email || "",
+          });
+        }
+      }
+
+      if (candidates.length === 0) {
+        throw new Error("Aucun candidat valide trouvé dans le fichier");
+      }
+
+      // Auto-import the candidates
+      onImportComplete(candidates);
+
+      toast({
+        title: "Import réussi",
+        description: `${candidates.length} candidat(s) importé(s) avec succès`,
       });
 
-      setParsedData(data);
-      setParseError(null);
+      // Close the dialog after a short delay
+      setTimeout(() => {
+        if (onClose) onClose();
+      }, 1000);
     } catch (error) {
-      setParseError(
-        error instanceof Error
-          ? error.message
-          : "Erreur lors de la lecture du fichier CSV"
+      console.error("Error parsing CSV:", error);
+      setError(
+        error.message ||
+          "Une erreur est survenue lors de l'importation du fichier"
       );
-      setParsedData([]);
-    }
-  };
-
-  const handleImport = () => {
-    if (!file || parsedData.length === 0) {
       toast({
-        title: "Erreur d'import",
-        description: "Veuillez d'abord charger un fichier CSV valide.",
+        title: "Erreur d'importation",
+        description:
+          error.message ||
+          "Une erreur est survenue lors de l'importation du fichier",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsLoading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
-
-    if (typeof onImportComplete === "function") {
-      onImportComplete(parsedData);
-    }
-
-    toast({
-      title: "Import réussi",
-      description: `Import de ${parsedData.length} candidats.`,
-      variant: "default",
-    });
-    resetState();
   };
 
   return (
-    <div className="relative">
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5" />
-            Importer le fichier CSV des candidats
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="border-2 border-dashed rounded-md p-6 text-center">
-              <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-              <h3 className="font-medium mb-1">Charger le fichier CSV</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Le fichier doit contenir les colonnes : CNE, CIN, NOM, PRÉNOM,
-                EMAIL
-              </p>
-              <Input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                onChange={handleFileChange}
-                className="max-w-sm mx-auto"
-              />
-            </div>
+    <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-xl font-semibold mb-4">Importer des candidats</h2>
 
-            {parseError && (
-              <div className="bg-destructive/10 text-destructive p-3 rounded-md flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                <span>{parseError}</span>
-              </div>
+      <div className="space-y-4">
+        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+          {isLoading ? (
+            <Loader2 className="w-10 h-10 mb-3 text-blue-500 animate-spin" />
+          ) : (
+            <Upload className="w-10 h-10 mb-3 text-gray-400" />
+          )}
+          <p className="mb-2 text-sm text-gray-600 text-center">
+            {isLoading ? (
+              "Traitement en cours..."
+            ) : (
+              <span className="font-medium">
+                Glissez-déposez votre fichier CSV ici
+              </span>
             )}
+          </p>
+          <p className="text-xs text-gray-500 mb-4 text-center">
+            {isLoading
+              ? "Veuillez patienter..."
+              : "ou cliquez pour sélectionner un fichier"}
+          </p>
 
-            {parsedData.length > 0 && (
-              <div className="overflow-x-auto border rounded mt-4">
-                <table className="min-w-full text-xs">
-                  <thead>
-                    <tr>
-                      <th className="p-2">CNE</th>
-                      <th className="p-2">CIN</th>
-                      <th className="p-2">Nom</th>
-                      <th className="p-2">Prénom</th>
-                      <th className="p-2">Email</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsedData.map((c) => (
-                      <tr key={c.id}>
-                        <td className="p-2">{c.CNE}</td>
-                        <td className="p-2">{c.CIN}</td>
-                        <td className="p-2">{c.nom}</td>
-                        <td className="p-2">{c.prenom}</td>
-                        <td className="p-2">{c.email}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="relative"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Import en cours...
+              </>
+            ) : (
+              "Sélectionner un fichier"
             )}
+            <Input
+              type="file"
+              accept=".csv"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={handleFileChange}
+              ref={fileInputRef}
+              disabled={isLoading}
+            />
+          </Button>
 
-            <div className="flex justify-end mt-4">
-              <Button
-                onClick={handleImport}
-                className="bg-primary text-white shadow-md hover:bg-primary/90"
-                disabled={parsedData.length === 0}
-              >
-                <Check className="h-4 w-4 mr-2" />
-                Importer les candidats
-              </Button>
-            </div>
+          <p className="mt-3 text-xs text-gray-500 text-center">
+            Format requis: CNE, CIN, Nom, Prénom, Email
+          </p>
+        </div>
+
+        {error && (
+          <div className="p-3 text-sm text-red-700 bg-red-100 rounded-lg flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+            <span>{error}</span>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   );
 };
 
 ImportCSVforConcours.propTypes = {
-  onImportComplete: PropTypes.func,
+  onImportComplete: PropTypes.func.isRequired,
+  onClose: PropTypes.func,
 };
 
 export default ImportCSVforConcours;

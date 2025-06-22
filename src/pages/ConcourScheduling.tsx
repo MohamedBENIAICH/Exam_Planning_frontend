@@ -147,9 +147,18 @@ const ConcourScheduling = () => {
     try {
       const submissionData = { ...concourData };
 
-      // Ensure `locaux` is a JSON string if it's an array of objects
+      // Handle locaux data properly
       if (Array.isArray(submissionData.locaux)) {
-        submissionData.locaux = JSON.stringify(submissionData.locaux);
+        // If it's an array of strings (IDs), keep it as is
+        if (submissionData.locaux.length > 0 && typeof submissionData.locaux[0] === 'string') {
+          // No need to stringify, the backend expects an array of IDs
+          submissionData.locaux = submissionData.locaux;
+        } else {
+          // If it's an array of objects, extract the IDs
+          submissionData.locaux = submissionData.locaux.map(local => 
+            typeof local === 'object' ? local.id || local : local
+          );
+        }
       }
 
       setLoading(true);
@@ -187,6 +196,8 @@ const ConcourScheduling = () => {
           title: "Succès",
           description: "Le concours a été ajouté avec succès.",
         });
+        // Reset form state
+        setEditingConcour(null);
         setIsDialogOpen(false);
         fetchConcours(); // Refresh list after add
       }
@@ -375,7 +386,6 @@ const ConcourScheduling = () => {
           }
         />
         <div className="flex-1 p-4 sm:p-6 overflow-auto">
-          <h1 className="text-2xl font-bold mb-6">Les 5 derniers concours</h1>
           <Tabs defaultValue="grid">
             <TabsContent value="grid" className="space-y-4">
               {loading ? (
