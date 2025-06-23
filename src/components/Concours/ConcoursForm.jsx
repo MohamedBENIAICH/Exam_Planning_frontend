@@ -126,56 +126,64 @@ const ConcoursForm = ({
       ...defaultValues,
       titre: concour.titre || "",
       description: concour.description || "",
-      date_concours: concour.date_concours
-        ? new Date(concour.date_concours)
-        : new Date(),
+      date_concours: concour.date_concours ? new Date(concour.date_concours) : new Date(),
       heure_debut: concour.heure_debut || "09:00",
       heure_fin: concour.heure_fin || "11:00",
       type_epreuve: concour.type_epreuve || "",
-      candidats:
-        concour.candidats?.map((c) => ({
-          CNE: c.CNE,
-          CIN: c.CIN,
-          nom: c.nom,
-          prenom: c.prenom,
-          email: c.email,
-        })) || [],
-      professeurs: concour.professeurs?.map((p) => p.id.toString()) || [],
-      superviseurs: concour.superviseurs?.map((s) => s.id.toString()) || [],
+      candidats: concour.candidats?.map(c => ({
+        CNE: c.CNE,
+        CIN: c.CIN,
+        nom: c.nom,
+        prenom: c.prenom,
+        email: c.email,
+      })) || [],
+      professeurs: concour.professeurs?.map(p => p.id?.toString() || p) || [],
+      superviseurs: concour.superviseurs?.map(s => s.id?.toString() || s) || [],
     };
 
     // Process locaux if they exist
     if (concour.locaux) {
-      if (Array.isArray(concour.locaux) && concour.locaux.length > 0) {
-        if (
-          typeof concour.locaux[0] === "string" ||
-          typeof concour.locaux[0] === "number"
-        ) {
-          processedValues.locaux = concour.locaux.map(String);
-        } else if (typeof concour.locaux[0] === "object") {
-          processedValues.locaux = concour.locaux
-            .map((l) => l.id?.toString() || l.nom_local || l.nom_du_local || "")
-            .filter(Boolean);
-        }
-      } else if (typeof concour.locaux === "string") {
+      // If locaux is a string that's a JSON array
+      if (typeof concour.locaux === 'string' && concour.locaux.startsWith('[')) {
         try {
           const parsed = JSON.parse(concour.locaux);
-          if (Array.isArray(parsed)) {
+          if (Array.isArray(parsed) && parsed.length > 0) {
             processedValues.locaux = parsed
-              .map(
-                (l) => l.id?.toString() || l.nom_local || l.nom_du_local || ""
-              )
+              .map(l => l.id?.toString() || l.nom_local || l.nom_du_local || "")
               .filter(Boolean);
           }
         } catch (e) {
-          processedValues.locaux = concour.locaux
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean);
+          // If parsing fails, treat as empty array
+          processedValues.locaux = [];
         }
+      }
+      // If locaux is an array
+      else if (Array.isArray(concour.locaux)) {
+        if (concour.locaux.length > 0) {
+          // If array of objects with id property
+          if (typeof concour.locaux[0] === 'object' && concour.locaux[0] !== null) {
+            processedValues.locaux = concour.locaux
+              .map(l => l.id?.toString() || l.nom_local || l.nom_du_local || "")
+              .filter(Boolean);
+          }
+          // If array of strings/IDs
+          else if (typeof concour.locaux[0] === 'string' || typeof concour.locaux[0] === 'number') {
+            processedValues.locaux = concour.locaux.map(String);
+          }
+        } else {
+          processedValues.locaux = [];
+        }
+      }
+      // If locaux is a comma-separated string
+      else if (typeof concour.locaux === 'string') {
+        processedValues.locaux = concour.locaux
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
       }
     }
 
+    console.log("Processed form values:", processedValues);
     return processedValues;
   };
 
@@ -206,56 +214,41 @@ const ConcoursForm = ({
       // Extract the local IDs from the concour.locaux
       const localIds = [];
       const localObjects = [];
-
+      
       if (Array.isArray(concour.locaux)) {
         // If it's an array of strings (IDs)
-        if (
-          concour.locaux.length > 0 &&
-          (typeof concour.locaux[0] === "string" ||
-            typeof concour.locaux[0] === "number")
-        ) {
+        if (concour.locaux.length > 0 && (typeof concour.locaux[0] === 'string' || typeof concour.locaux[0] === 'number')) {
           localIds.push(...concour.locaux.map(String));
         }
         // If it's an array of objects
-        else if (
-          concour.locaux.length > 0 &&
-          typeof concour.locaux[0] === "object"
-        ) {
-          concour.locaux.forEach((local) => {
-            const id =
-              local.id?.toString() || local.nom_local || local.nom_du_local;
+        else if (concour.locaux.length > 0 && typeof concour.locaux[0] === 'object') {
+          concour.locaux.forEach(local => {
+            const id = local.id?.toString() || local.nom_local || local.nom_du_local;
             if (id) {
               localIds.push(id);
               localObjects.push(local);
             }
           });
         }
-      } else if (typeof concour.locaux === "string") {
+      } else if (typeof concour.locaux === 'string') {
         try {
           const parsed = JSON.parse(concour.locaux);
           if (Array.isArray(parsed)) {
-            parsed.forEach((local) => {
-              if (typeof local === "object") {
-                const id =
-                  local.id?.toString() || local.nom_local || local.nom_du_local;
+            parsed.forEach(local => {
+              if (typeof local === 'object') {
+                const id = local.id?.toString() || local.nom_local || local.nom_du_local;
                 if (id) {
                   localIds.push(id);
                   localObjects.push(local);
                 }
-              } else if (
-                typeof local === "string" ||
-                typeof local === "number"
-              ) {
+              } else if (typeof local === 'string' || typeof local === 'number') {
                 localIds.push(String(local));
               }
             });
           }
         } catch (e) {
           // If it's a comma-separated string
-          const ids = concour.locaux
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean);
+          const ids = concour.locaux.split(',').map(s => s.trim()).filter(Boolean);
           localIds.push(...ids);
         }
       }
@@ -263,20 +256,18 @@ const ConcoursForm = ({
       // Set the form value with unique IDs
       if (localIds.length > 0) {
         const uniqueLocalIds = [...new Set(localIds)];
-        form.setValue("locaux", uniqueLocalIds);
-
+        form.setValue('locaux', uniqueLocalIds);
+        
         // If we have local objects, try to determine the classroom type and department
         if (localObjects.length > 0) {
           const firstLocal = localObjects[0];
-
+          
           // Check if it's an amphi or classroom based on capacity or name
-          const isAmphi =
-            firstLocal.capacite > 100 ||
-            (firstLocal.nom_du_local &&
-              firstLocal.nom_du_local.toLowerCase().includes("amphi"));
-
-          setSelectedClassroomType(isAmphi ? "amphi" : "classroom");
-
+          const isAmphi = firstLocal.capacite > 100 || 
+                         (firstLocal.nom_du_local && firstLocal.nom_du_local.toLowerCase().includes('amphi'));
+          
+          setSelectedClassroomType(isAmphi ? 'amphi' : 'classroom');
+          
           // If it's a classroom, set the department
           if (!isAmphi && firstLocal.departement) {
             setSelectedClassroomDepartment(firstLocal.departement);
@@ -428,46 +419,33 @@ const ConcoursForm = ({
               form.getValues("date_concours"),
               "yyyy-MM-dd"
             );
-            const startTime = form
-              .getValues("heure_debut")
-              .split(":")
-              .slice(0, 2)
-              .join(":"); // Ensure HH:MM format
-            const endTime = form
-              .getValues("heure_fin")
-              .split(":")
-              .slice(0, 2)
-              .join(":");
+            const startTime = form.getValues("heure_debut").split(':').slice(0, 2).join(':'); // Ensure HH:MM format
+            const endTime = form.getValues("heure_fin").split(':').slice(0, 2).join(':');
 
             // Fetch scheduled amphitheaters with proper error handling
             const scheduledResponse = await fetch(
               `http://localhost:8000/api/classrooms/availability?date=${formattedDate}&start_time=${startTime}&end_time=${endTime}&type=amphi`
             );
-
+            
             if (scheduledResponse.ok) {
               const scheduledData = await scheduledResponse.json();
-
+              
               if (scheduledData.status === "success") {
-                const scheduledAmphiIds =
-                  scheduledData.data.scheduled_classrooms?.map((c) => c.id) ||
-                  [];
-
+                const scheduledAmphiIds = scheduledData.data.scheduled_classrooms?.map((c) => c.id) || [];
+                
                 // Mark amphitheaters as unavailable if they are scheduled
-                const amphitheatersWithAvailability = data.data.map(
-                  (amphi) => ({
-                    ...amphi,
-                    isUnavailable: scheduledAmphiIds.includes(amphi.id),
-                  })
-                );
+                const amphitheatersWithAvailability = data.data.map((amphi) => ({
+                  ...amphi,
+                  isUnavailable: scheduledAmphiIds.includes(amphi.id),
+                }));
                 setAmphitheaters(amphitheatersWithAvailability);
                 return;
               }
             }
             // If we get here, there was an issue with the availability check
-            console.warn(
-              "Could not check amphitheater availability, showing all as available"
-            );
+            console.warn("Could not check amphitheater availability, showing all as available");
             setAmphitheaters(data.data);
+            
           } catch (error) {
             console.error("Error checking amphitheater availability:", error);
             // If there's an error with availability check, still show all amphitheaters
@@ -520,77 +498,46 @@ const ConcoursForm = ({
         const startTime = form.getValues("heure_debut");
         const endTime = form.getValues("heure_fin");
 
-        if (isEditMode) {
-          // Pour la modification : afficher tous les locaux du département, mais exclure ceux indisponibles
-          // First API call to get scheduled classrooms
-          const scheduledResponse = await fetch(
-            `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
+        // Get all classrooms for the department
+        const allClassroomsResponse = await fetch(
+          `http://localhost:8000/api/classrooms/by-departement?departement=${selectedClassroomDepartment}`
+        );
+        const allClassroomsData = await allClassroomsResponse.json();
+
+        if (allClassroomsData.status !== "success") {
+          throw new Error("Failed to fetch classrooms");
+        }
+
+        // Get scheduled classrooms for the time slot
+        const scheduledResponse = await fetch(
+          `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
+        );
+        const scheduledData = await scheduledResponse.json();
+
+        if (scheduledData.status === "success") {
+          const scheduledClassroomIds = scheduledData.data.scheduled_classrooms?.map((c) => c.id) || [];
+          
+          // Mark classrooms as unavailable if they are scheduled
+          const classroomsWithAvailability = allClassroomsData.data.map(
+            (classroom) => ({
+              ...classroom,
+              isUnavailable: scheduledClassroomIds.includes(classroom.id),
+            })
           );
-          const scheduledData = await scheduledResponse.json();
-
-          if (scheduledData.status === "success") {
-            const scheduledClassroomIds =
-              scheduledData.data.scheduled_classrooms.map((c) => c.id);
-
-            // Second API call to get all classrooms of the department
-            const allClassroomsResponse = await fetch(
-              `http://localhost:8000/api/classrooms/by-departement?departement=${selectedClassroomDepartment}`
-            );
-            const allClassroomsData = await allClassroomsResponse.json();
-
-            if (allClassroomsData.status === "success") {
-              // Marquer les locaux comme indisponibles s'ils sont dans la liste des salles programmées
-              const classroomsWithAvailability = allClassroomsData.data.map(
-                (classroom) => ({
-                  ...classroom,
-                  isUnavailable: scheduledClassroomIds.includes(classroom.id),
-                })
-              );
-              setAvailableClassrooms(classroomsWithAvailability);
-            }
-          }
+          
+          setAvailableClassrooms(classroomsWithAvailability);
         } else {
-          // Pour la création : logique existante (afficher seulement les locaux disponibles)
-          const scheduledResponse = await fetch(
-            `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
-          );
-          const scheduledData = await scheduledResponse.json();
-
-          if (scheduledData.status === "success") {
-            const scheduledClassroomIds =
-              scheduledData.data.scheduled_classrooms.map((c) => c.id);
-
-            // Second API call to get available classrooms
-            const availableResponse = await fetch(
-              "http://localhost:8000/api/classrooms/not-in-list",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  classroom_ids: scheduledClassroomIds,
-                }),
-              }
-            );
-            const availableData = await availableResponse.json();
-
-            if (availableData.status === "success") {
-              // Filter classrooms by selected department
-              const departmentClassrooms = availableData.data.filter(
-                (classroom) =>
-                  classroom.departement === selectedClassroomDepartment
-              );
-              setAvailableClassrooms(departmentClassrooms);
-            }
-          }
+          // If we can't get scheduled classrooms, show all as available
+          setAvailableClassrooms(allClassroomsData.data);
         }
       } catch (error) {
+        console.error("Error fetching classrooms:", error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les salles disponibles",
+          description: "Impossible de charger les salles de classe",
           variant: "destructive",
         });
+        setAvailableClassrooms([]);
       } finally {
         setLoadingClassrooms(false);
       }
@@ -1070,11 +1017,11 @@ const ConcoursForm = ({
                   </div>
                 )}
                 {/* Selected Locaux Section */}
-                {field.value.length > 0 && (
-                  <div className="mt-6 pt-4 border-t border-slate-200">
-                    <h4 className="text-sm font-medium text-slate-700 mb-3">
-                      Locaux sélectionnés ({field.value.length})
-                    </h4>
+                <div className="mt-6 pt-4 border-t border-slate-200">
+                  <h4 className="text-sm font-medium text-slate-700 mb-3">
+                    Locaux sélectionnés ({field.value.length || 0})
+                  </h4>
+                  {field.value.length > 0 ? (
                     <div className="space-y-2">
                       {field.value.map((selectedId) => {
                         const selectedItem =
@@ -1114,9 +1061,10 @@ const ConcoursForm = ({
                         );
                       })}
                     </div>
-                  </div>
-                )}
-                <FormMessage />
+                  ) : (
+                    <p className="text-sm text-slate-500">Aucun local sélectionné</p>
+                  )}
+                </div>
               </FormItem>
             )}
           />
@@ -1156,8 +1104,7 @@ const ConcoursForm = ({
               {/* Show imported candidats count */}
               {importedCandidats.length > 0 && (
                 <div className="mt-2 text-sm text-gray-600">
-                  {importedCandidats.length} candidat(e)(s) sélectionné(s)
-                  d'après le fichier
+                  {importedCandidats.length} candidat(e)(s) sélectionné(s) d'après le fichier
                 </div>
               )}
               <FormMessage />
