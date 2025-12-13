@@ -6,10 +6,17 @@ Ce projet est l'interface utilisateur (frontend) de l'application FST Digital, d
 
 ## Technologies Utilisées
 
-- **Frontend :** React (JavaScript)
+- **Frontend :** React (TypeScript)
 - **Build Tool :** Vite
-- **Bibliothèque UI :** Material-UI (MUI)
+- **Bibliothèque UI :** Material-UI (MUI), shadcn/ui (Radix UI)
 - **Routage :** React Router DOM
+- **Styling :** TailwindCSS avec animations
+- **Gestion d'état et données :** TanStack React Query
+- **Formulaires :** React Hook Form avec Zod pour la validation
+- **Graphiques :** Recharts
+- **Notifications :** Sonner
+- **Export Excel :** XLSX
+- **Carousels :** Embla Carousel
 
 ## Environnements de Développement Recommandés
 
@@ -19,8 +26,9 @@ Ce projet est l'interface utilisateur (frontend) de l'application FST Digital, d
 
 Assurez-vous de disposer d'une connexion Internet et d'avoir installé les éléments suivants sur votre système :
 
-- **Node.js :** Version LTS (Long Term Support) recommandée. Inclut npm (Node Package Manager).
+- **Node.js :** Version LTS (Long Term Support) recommandée (v18 ou supérieure). Inclut npm (Node Package Manager).
 - **Git :** Pour cloner le dépôt.
+- **TypeScript :** Inclus dans les dépendances du projet
 
 ## Instructions d'Installation
 
@@ -88,9 +96,57 @@ Exam_Planning_frontend/
 │   └── utils/                    # Fonctions utilitaires et helpers
 ├── index.html                    # Point d'entrée HTML
 ├── package.json                  # Dépendances et scripts npm
-├── vite.config.js                # Configuration de Vite
+├── vite.config.ts                # Configuration de Vite
+├── tailwind.config.ts            # Configuration de TailwindCSS
+├── tsconfig.json                 # Configuration TypeScript
 └── README.md                     # Ce fichier
 ```
+
+## Bibliothèques et Composants UI
+
+### shadcn/ui (Radix UI)
+
+Le projet utilise shadcn/ui, une collection de composants réutilisables construits avec Radix UI et TailwindCSS :
+
+- **Composants de dialogue** : Alert Dialog, Dialog, Popover
+- **Composants de formulaire** : Input, Select, Checkbox, Radio Group, Switch, Slider
+- **Composants de navigation** : Navigation Menu, Menubar, Dropdown Menu, Tabs
+- **Composants de feedback** : Toast, Progress, Tooltip, Hover Card
+- **Composants de layout** : Accordion, Collapsible, Separator, Scroll Area, Resizable Panels
+- **Composants de données** : Table, Avatar, Badge, Card
+
+### TanStack React Query
+
+Utilisé pour la gestion des données asynchrones :
+
+- **Caching intelligent** : Mise en cache automatique des données
+- **Synchronisation** : Synchronisation automatique avec le backend
+- **Optimisation** : Réduction des requêtes réseau redondantes
+
+### Recharts
+
+Bibliothèque de graphiques pour visualiser les données :
+
+- **Graphiques interactifs** : Graphiques en barres, lignes, secteurs
+- **Responsive** : S'adapte à toutes les tailles d'écran
+
+### Fonctionnalités Additionnelles
+
+- **Export Excel** : Exportation des données au format Excel avec la bibliothèque XLSX
+- **Notifications Toast** : Système de notifications élégant avec Sonner
+- **Thèmes** : Support du mode sombre avec next-themes
+- **Validation de formulaires** : Validation robuste avec Zod et React Hook Form
+
+## Développement avec TypeScript
+
+Le projet est développé en TypeScript pour une meilleure sécurité de type et une expérience de développement améliorée :
+
+- **Type Safety** : Détection des erreurs à la compilation
+- **IntelliSense** : Autocomplétion avancée dans l'IDE
+- **Refactoring** : Refactoring sûr et efficace
+- **Documentation** : Types comme documentation du code
+
+````
 
 ## Nouvelles Fonctionnalités - Annulation et Notifications Automatiques
 
@@ -148,7 +204,7 @@ POST / api / concours / { id } / cancel;
 // Envoi de convocations mises à jour
 POST / api / exams / { id } / send - updated - convocations;
 POST / api / concours / { id } / send - updated - convocations;
-```
+````
 
 #### Gestion des Réponses
 
