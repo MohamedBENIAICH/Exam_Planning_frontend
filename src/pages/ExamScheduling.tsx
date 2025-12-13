@@ -977,7 +977,7 @@ const ExamScheduling = () => {
                             </div>
                           </CardContent>
                           <CardFooter className="flex justify-end gap-2">
-                            <Button
+                            {/* <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleEditExam(exam)}
@@ -990,7 +990,7 @@ const ExamScheduling = () => {
                               onClick={() => handleDeleteClick(exam)}
                             >
                               Supprimer
-                            </Button>
+                            </Button> */}
                             <Button
                               variant="outline"
                               size="sm"

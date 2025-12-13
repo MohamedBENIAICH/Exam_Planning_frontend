@@ -16,6 +16,9 @@ import {
   ChevronDown,
   User,
   Download,
+  Mail,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import {
   Card,
@@ -53,6 +56,10 @@ interface ApiExam {
   locaux: string;
   superviseurs: string;
   professeurs: string;
+  supervisors_notified: boolean;
+  students_notified: boolean;
+  supervisors_notified_at: string | null;
+  students_notified_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -120,6 +127,8 @@ const ExamSection = ({
   const { toast } = useToast();
   const [editingExam, setEditingExam] = useState<ExamToEdit | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [sendingSupervisorNotifications, setSendingSupervisorNotifications] = useState<Record<number, boolean>>({});
+  const [sendingStudentConvocations, setSendingStudentConvocations] = useState<Record<number, boolean>>({});
 
   // Check if this is the past exams section
   const isPastExams = title === "Examens passés";
@@ -306,6 +315,74 @@ const ExamSection = ({
     }
   };
 
+  const handleSendSupervisorNotifications = async (examId: number) => {
+    setSendingSupervisorNotifications(prev => ({ ...prev, [examId]: true }));
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/exams/${examId}/send-supervisor-notifications`,
+        { method: "POST" }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to send notifications");
+      }
+
+      const data = await response.json();
+
+      toast({
+        title: "Succès",
+        description: "Les notifications ont été envoyées aux professeurs et superviseurs.",
+        className: "bg-green-50 border-green-200 text-green-800",
+      });
+
+      // Refresh the exams list
+      window.location.reload();
+    } catch (error) {
+      console.error("Error sending supervisor notifications:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'envoi des notifications.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingSupervisorNotifications(prev => ({ ...prev, [examId]: false }));
+    }
+  };
+
+  const handleSendStudentConvocations = async (examId: number) => {
+    setSendingStudentConvocations(prev => ({ ...prev, [examId]: true }));
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/exams/${examId}/send-student-convocations`,
+        { method: "POST" }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to send convocations");
+      }
+
+      const data = await response.json();
+
+      toast({
+        title: "Succès",
+        description: "Les convocations ont été envoyées aux étudiants.",
+        className: "bg-green-50 border-green-200 text-green-800",
+      });
+
+      // Refresh the exams list
+      window.location.reload();
+    } catch (error) {
+      console.error("Error sending student convocations:", error);
+      toast({
+        title: "Erreur",
+        description: "Une erreur s'est produite lors de l'envoi des convocations.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingStudentConvocations(prev => ({ ...prev, [examId]: false }));
+    }
+  };
+
   const renderPagination = () => {
     if (totalPages <= 1) return null;
 
@@ -446,7 +523,33 @@ const ExamSection = ({
                     </div>
                   </div>
                 </CardContent>
-                <CardFooter className="flex justify-end gap-2 p-4 pt-0">
+                {!isPastExams && (
+                  <div className="px-4 pb-2">
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className="flex items-center gap-1">
+                        {examen.supervisors_notified ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-gray-400" />
+                        )}
+                        <span className={examen.supervisors_notified ? "text-green-600" : "text-gray-500"}>
+                          Profs/Superviseurs
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {examen.students_notified ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-gray-400" />
+                        )}
+                        <span className={examen.students_notified ? "text-green-600" : "text-gray-500"}>
+                          Étudiants
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <CardFooter className="flex flex-wrap justify-end gap-2 p-4 pt-0">
                   <Button
                     variant="outline"
                     size="sm"
@@ -463,6 +566,28 @@ const ExamSection = ({
                     <Download className="h-4 w-4 mr-2" />
                     PDF
                   </Button>
+                  {!isPastExams && !examen.supervisors_notified && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSendSupervisorNotifications(examen.id)}
+                      disabled={sendingSupervisorNotifications[examen.id]}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      {sendingSupervisorNotifications[examen.id] ? "Envoi..." : "Envoyer aux Profs"}
+                    </Button>
+                  )}
+                  {!isPastExams && !examen.students_notified && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSendStudentConvocations(examen.id)}
+                      disabled={sendingStudentConvocations[examen.id]}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      {sendingStudentConvocations[examen.id] ? "Envoi..." : "Envoyer aux Étudiants"}
+                    </Button>
+                  )}
                   {!isPastExams && (
                     <Button
                       variant="outline"

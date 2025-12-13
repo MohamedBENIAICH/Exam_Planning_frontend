@@ -88,8 +88,6 @@ const ExamForm = ({
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [showImportCSV, setShowImportCSV] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sendingInvitations, setSendingInvitations] = useState(false);
-  const [examCreated, setExamCreated] = useState(false);
   const [examId, setExamId] = useState(exam?.id || null);
   const [availableClassrooms, setAvailableClassrooms] = useState([]);
   const [supervisorsByDepartment, setSupervisorsByDepartment] = useState([]);
@@ -809,21 +807,26 @@ const ExamForm = ({
           title: "Examen mis à jour",
           description: `L'examen de ${values.module} a été mis à jour avec succès`,
         });
+
+        // Close the dialog immediately after exam update
+        if (onSubmit) {
+          onSubmit(result);
+        }
       } else {
         result = await createExam(examData);
         toast({
           title: "Examen créé",
           description: `L'examen de ${values.module} a été créé avec succès`,
         });
-        setExamCreated(true);
         setExamId(result?.id || result?.data?.id);
+
+        // Close the dialog immediately after exam creation
+        if (onSubmit) {
+          onSubmit(result);
+        }
       }
 
       console.log("API response:", result);
-
-      if (onSubmit) {
-        onSubmit(result);
-      }
 
       // After creating the exam, immediately call the assignment endpoint
       try {
@@ -891,83 +894,6 @@ const ExamForm = ({
     }
     // Ensure loading is stopped after all logic
     setLoading(false);
-  };
-
-  const handleSendInvitations = async () => {
-    if (!examId || !importedStudentsLocal.length) {
-      toast({
-        title: "Erreur",
-        description: "Impossible d'envoyer les convocations",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setSendingInvitations(true);
-
-      // Récupérer les informations de l'examen
-      const examValues = form.getValues();
-      const formattedDate = format(examValues.date, "yyyy-MM-dd");
-
-      // Préparer les données pour l'envoi
-      const requestData = {
-        exam: {
-          id: examId,
-          module: examValues.module,
-          date: formattedDate,
-          startTime: examValues.startTime,
-          endTime: examValues.endTime,
-          classrooms: examValues.classrooms,
-        },
-        students: importedStudentsLocal.map((student) => ({
-          studentId: student.studentId,
-          firstName: student.firstName,
-          lastName: student.lastName,
-          email: student.email,
-          cne: student.cne,
-          program: student.program,
-          cin: student.cin,
-        })),
-      };
-
-      console.log("Sending invitations with data:", requestData);
-
-      const response = await fetch(
-        `http://localhost:8000/api/exams/${examId}/send-invitations`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(requestData),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Server response:", errorText);
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
-
-      toast({
-        title: "Convocations envoyées",
-        description:
-          "Les convocations ont été envoyées avec succès aux étudiants",
-      });
-    } catch (error) {
-      console.error("Error sending invitations:", error);
-      toast({
-        title: "Erreur",
-        description: `Impossible d'envoyer les convocations: ${error.message}`,
-        variant: "destructive",
-      });
-    } finally {
-      setSendingInvitations(false);
-    }
   };
 
   const handleFormError = (errors) => {
@@ -1921,30 +1847,13 @@ const ExamForm = ({
                 console.log("Cancel button clicked");
                 onCancel?.(e);
               }}
-              disabled={loading || sendingInvitations}
+              disabled={loading}
             >
               Annuler
             </Button>
-            {examCreated && (
-              <Button
-                type="button"
-                onClick={handleSendInvitations}
-                disabled={sendingInvitations}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {sendingInvitations ? (
-                  <div className="flex items-center gap-2">
-                    <Spinner />
-                    Envoi en cours...
-                  </div>
-                ) : (
-                  "Envoyer les convocations"
-                )}
-              </Button>
-            )}
             <Button
               type="submit"
-              disabled={loading || sendingInvitations}
+              disabled={loading}
               onClick={() => console.log("🔴 Submit button clicked")}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >

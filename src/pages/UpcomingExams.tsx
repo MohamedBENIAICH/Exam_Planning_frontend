@@ -15,6 +15,10 @@ interface ApiExam {
   locaux: string;
   superviseurs: string;
   professeurs: string;
+  supervisors_notified: boolean;
+  students_notified: boolean;
+  supervisors_notified_at: string | null;
+  students_notified_at: string | null;
   created_at: string;
   updated_at: string;
 }
