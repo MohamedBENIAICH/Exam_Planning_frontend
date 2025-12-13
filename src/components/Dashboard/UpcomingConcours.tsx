@@ -17,6 +17,7 @@ import {
   Users,
   CheckCircle,
   XCircle,
+  Pencil,
 } from "lucide-react";
 import ClassroomAssignments from "@/components/ClassroomAssignments/ClassroomAssignments";
 import {
@@ -334,11 +335,17 @@ const ConcoursSection = ({
           }
         );
         if (!response.ok) throw new Error("Erreur lors de la modification");
-        toast({ 
-          title: "Succès", 
-          description: "Concours modifié ! Les convocations mises à jour avec QR codes ont été envoyées automatiquement aux candidats." 
+
+        // Get the updated concours data from the backend (includes email status)
+        const updatedData = await response.json();
+
+        toast({
+          title: "Succès",
+          description: "Concours modifié ! Les convocations mises à jour avec QR codes ont été envoyées automatiquement aux candidats."
         });
-        onConcoursUpdate({ ...concour, id: editingConcour.id } as Concours);
+
+        // Use the data from the backend which includes the updated email status
+        onConcoursUpdate(updatedData as Concours);
         setEditingConcour(null);
         setIsDialogOpen(false);
       } else {
@@ -398,6 +405,10 @@ const ConcoursSection = ({
 
       // Remove the concours from the list using the new prop
       onConcoursDelete(concoursId);
+
+      // Close the details dialog if it's open
+      setIsDetailDialogOpen(false);
+      setSelectedConcours(null);
     } catch (error: any) {
       console.error("Erreur lors de la suppression du concours:", error);
       toast({
@@ -528,7 +539,7 @@ const ConcoursSection = ({
                     <h3 className="font-semibold text-lg">{concours.titre}</h3>
                     <p className="text-sm text-gray-500">{concours.description}</p>
                   </div>
-                  <Badge variant={concours.status === 'annulé' ? 'destructive' : 'default'}>
+                  <Badge variant={concours.status === 'cancelled' ? 'destructive' : 'default'}>
                     {format(new Date(concours.date_concours), "dd/MM/yyyy")}
                   </Badge>
                 </div>
@@ -587,18 +598,9 @@ const ConcoursSection = ({
                   </div>
                 </div>
                 
-                <div className="flex justify-between items-center pt-3 border-t">
-                  <div className="flex space-x-2">
-                    {/* {showEditButton && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditConcour(concours)}
-                        disabled={concours.status === 'annulé'}
-                      >
-                        Modifier
-                      </Button>
-                    )} */}
+                <div className="pt-3 border-t">
+                  <div className="flex items-start justify-between gap-4">
+                    {/* Left side: Details button */}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -606,78 +608,108 @@ const ConcoursSection = ({
                     >
                       Détails
                     </Button>
-                  </div>
-                  <div className="flex flex-col space-y-3 w-full">
-                    {/* Email Status Display */}
-                    <div className="flex items-center gap-3 text-sm px-2">
-                      <div className="flex items-center gap-1">
-                        {concours.supervisors_notified ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-gray-400" />
-                        )}
-                        <span className={concours.supervisors_notified ? "text-green-600" : "text-gray-500"}>
-                          Profs/Superviseurs
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        {concours.candidats_notified ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-gray-400" />
-                        )}
-                        <span className={concours.candidats_notified ? "text-green-600" : "text-gray-500"}>
-                          Candidats
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2">
+                    {/* Right side: Email status and action buttons - only for "Concours à venir" page */}
+                    {title === "Concours à venir" && (
+                      <div className="flex-1 space-y-3">
+                        {/* Email Status Display */}
+                        <div className="flex items-center justify-end gap-4 text-sm">
+                          <div className="flex items-center gap-1.5">
+                            {concours.supervisors_notified ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className={concours.supervisors_notified ? "text-green-600 font-medium" : "text-gray-500"}>
+                              Profs/Superviseurs
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {concours.candidats_notified ? (
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-gray-400" />
+                            )}
+                            <span className={concours.candidats_notified ? "text-green-600 font-medium" : "text-gray-500"}>
+                              Candidats
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDownloadReport(concours.id)}
+                            disabled={concours.status === 'cancelled'}
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Compte Rendu
+                          </Button>
+
+                          {/* Show notification buttons only if not already sent */}
+                          {!concours.supervisors_notified && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSendSupervisorNotifications(concours.id)}
+                              disabled={sendingSupervisorNotifications[concours.id] || concours.status === 'annulé'}
+                            >
+                              <Mail className="w-4 h-4 mr-2" />
+                              {sendingSupervisorNotifications[concours.id] ? "Envoi..." : "Envoyer aux Profs"}
+                            </Button>
+                          )}
+
+                          {!concours.candidats_notified && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleSendCandidatConvocations(concours.id)}
+                              disabled={sendingCandidatConvocations[concours.id] || concours.status === 'annulé'}
+                            >
+                              <Mail className="w-4 h-4 mr-2" />
+                              {sendingCandidatConvocations[concours.id] ? "Envoi..." : "Envoyer aux Candidats"}
+                            </Button>
+                          )}
+
+                          {/* Modifier button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditConcour(concours)}
+                            disabled={concours.status === 'cancelled'}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Modifier
+                          </Button>
+
+                          {/* Supprimer button */}
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteClick(concours)}
+                            disabled={concours.status === 'cancelled'}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Supprimer
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* For past concours or "Les 5 derniers concours", only show download button */}
+                    {(title === "Concours passés" || title === "Les 5 derniers concours") && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownloadReport(concours.id)}
-                        disabled={concours.status === 'annulé'}
+                        disabled={concours.status === 'cancelled'}
                       >
                         <Download className="w-4 h-4 mr-2" />
                         Compte Rendu
                       </Button>
-
-                      {/* Show notification buttons only if not already sent */}
-                      {!concours.supervisors_notified && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSendSupervisorNotifications(concours.id)}
-                          disabled={sendingSupervisorNotifications[concours.id] || concours.status === 'annulé'}
-                        >
-                          <Mail className="w-4 h-4 mr-2" />
-                          {sendingSupervisorNotifications[concours.id] ? "Envoi..." : "Envoyer aux Profs"}
-                        </Button>
-                      )}
-
-                      {!concours.candidats_notified && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSendCandidatConvocations(concours.id)}
-                          disabled={sendingCandidatConvocations[concours.id] || concours.status === 'annulé'}
-                        >
-                          <Mail className="w-4 h-4 mr-2" />
-                          {sendingCandidatConvocations[concours.id] ? "Envoi..." : "Envoyer aux Candidats"}
-                        </Button>
-                      )}
-
-                      {/* <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteClick(concours)}
-                        disabled={concours.status === 'annulé'}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button> */}
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

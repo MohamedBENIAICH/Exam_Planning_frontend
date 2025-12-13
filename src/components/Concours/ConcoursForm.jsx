@@ -141,46 +141,10 @@ const ConcoursForm = ({
       superviseurs: concour.superviseurs?.map(s => s.id?.toString() || s) || [],
     };
 
-    // Process locaux if they exist
+    // Process locaux if they exist - NOTE: will be properly set in useEffect once classrooms load
+    // For now, just store the raw locaux data
     if (concour.locaux) {
-      // If locaux is a string that's a JSON array
-      if (typeof concour.locaux === 'string' && concour.locaux.startsWith('[')) {
-        try {
-          const parsed = JSON.parse(concour.locaux);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            processedValues.locaux = parsed
-              .map(l => l.id?.toString() || l.nom_local || l.nom_du_local || "")
-              .filter(Boolean);
-          }
-        } catch (e) {
-          // If parsing fails, treat as empty array
-          processedValues.locaux = [];
-        }
-      }
-      // If locaux is an array
-      else if (Array.isArray(concour.locaux)) {
-        if (concour.locaux.length > 0) {
-          // If array of objects with id property
-          if (typeof concour.locaux[0] === 'object' && concour.locaux[0] !== null) {
-            processedValues.locaux = concour.locaux
-              .map(l => l.id?.toString() || l.nom_local || l.nom_du_local || "")
-              .filter(Boolean);
-          }
-          // If array of strings/IDs
-          else if (typeof concour.locaux[0] === 'string' || typeof concour.locaux[0] === 'number') {
-            processedValues.locaux = concour.locaux.map(String);
-          }
-        } else {
-          processedValues.locaux = [];
-        }
-      }
-      // If locaux is a comma-separated string
-      else if (typeof concour.locaux === 'string') {
-        processedValues.locaux = concour.locaux
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean);
-      }
+      processedValues.locaux = [];
     }
 
     console.log("Processed form values:", processedValues);
@@ -208,74 +172,90 @@ const ConcoursForm = ({
     setShowImportCSV(false);
   };
 
-  // Initialize selected classrooms when editing a concours
+  // Initialize selected classrooms when editing a concours - runs AFTER amphitheaters and availableLocaux are loaded
   useEffect(() => {
-    if (isEditMode && concour?.locaux) {
-      // Extract the local IDs from the concour.locaux
-      const localIds = [];
-      const localObjects = [];
-      
-      if (Array.isArray(concour.locaux)) {
-        // If it's an array of strings (IDs)
-        if (concour.locaux.length > 0 && (typeof concour.locaux[0] === 'string' || typeof concour.locaux[0] === 'number')) {
-          localIds.push(...concour.locaux.map(String));
-        }
-        // If it's an array of objects
-        else if (concour.locaux.length > 0 && typeof concour.locaux[0] === 'object') {
-          concour.locaux.forEach(local => {
-            const id = local.id?.toString() || local.nom_local || local.nom_du_local;
-            if (id) {
-              localIds.push(id);
+    if (!isEditMode || !concour?.locaux) {
+      console.log("Skipping locaux initialization - not in edit mode or no locaux");
+      return;
+    }
+
+    // Wait for amphitheaters to be loaded
+    if (loadingAmphitheaters) {
+      console.log("Waiting for amphitheaters to load...");
+      return;
+    }
+
+    console.log("Initializing locaux from concour:", concour.locaux);
+    console.log("Available allLocaux:", allLocaux);
+
+    const localObjects = [];
+
+    // Parse concour.locaux to extract local objects (the backend stores as JSON with nom_local)
+    if (typeof concour.locaux === 'string') {
+      try {
+        const parsed = JSON.parse(concour.locaux);
+        console.log("Parsed locaux from JSON:", parsed);
+        if (Array.isArray(parsed)) {
+          parsed.forEach(local => {
+            if (typeof local === 'object' && local.nom_local) {
               localObjects.push(local);
             }
           });
         }
-      } else if (typeof concour.locaux === 'string') {
-        try {
-          const parsed = JSON.parse(concour.locaux);
-          if (Array.isArray(parsed)) {
-            parsed.forEach(local => {
-              if (typeof local === 'object') {
-                const id = local.id?.toString() || local.nom_local || local.nom_du_local;
-                if (id) {
-                  localIds.push(id);
-                  localObjects.push(local);
-                }
-              } else if (typeof local === 'string' || typeof local === 'number') {
-                localIds.push(String(local));
-              }
-            });
-          }
-        } catch (e) {
-          // If it's a comma-separated string
-          const ids = concour.locaux.split(',').map(s => s.trim()).filter(Boolean);
-          localIds.push(...ids);
-        }
+      } catch (e) {
+        console.error("Failed to parse locaux JSON:", e);
       }
-
-      // Set the form value with unique IDs
-      if (localIds.length > 0) {
-        const uniqueLocalIds = [...new Set(localIds)];
-        form.setValue('locaux', uniqueLocalIds);
-        
-        // If we have local objects, try to determine the classroom type and department
-        if (localObjects.length > 0) {
-          const firstLocal = localObjects[0];
-          
-          // Check if it's an amphi or classroom based on capacity or name
-          const isAmphi = firstLocal.capacite > 100 || 
-                         (firstLocal.nom_du_local && firstLocal.nom_du_local.toLowerCase().includes('amphi'));
-          
-          setSelectedClassroomType(isAmphi ? 'amphi' : 'classroom');
-          
-          // If it's a classroom, set the department
-          if (!isAmphi && firstLocal.departement) {
-            setSelectedClassroomDepartment(firstLocal.departement);
-          }
+    } else if (Array.isArray(concour.locaux)) {
+      console.log("Locaux is already an array:", concour.locaux);
+      concour.locaux.forEach(local => {
+        if (typeof local === 'object') {
+          localObjects.push(local);
         }
-      }
+      });
     }
-  }, [isEditMode, concour, form]);
+
+    console.log("Extracted local objects:", localObjects);
+
+    // Match the local objects by name to the loaded classrooms/amphitheaters to get their IDs
+    if (localObjects.length > 0 && allLocaux.length > 0) {
+      const matchedByName = localObjects.map(localObj => {
+        const match = allLocaux.find(l =>
+          (l.nom_local === localObj.nom_local || l.nom_du_local === localObj.nom_local)
+        );
+        console.log(`Matching ${localObj.nom_local}:`, match);
+        return match;
+      }).filter(Boolean);
+
+      console.log("Matched locaux:", matchedByName);
+
+      if (matchedByName.length > 0) {
+        const firstLocal = matchedByName[0];
+
+        // Determine if it's an amphi or classroom
+        const isAmphi = firstLocal.capacite > 100 ||
+                       (firstLocal.nom_du_local && firstLocal.nom_du_local.toLowerCase().includes('amphi'));
+
+        console.log(`First local is ${isAmphi ? 'amphi' : 'classroom'}:`, firstLocal);
+
+        setSelectedClassroomType(isAmphi ? 'amphi' : 'classroom');
+
+        // If it's a classroom, set the department
+        if (!isAmphi && firstLocal.departement) {
+          console.log("Setting department to:", firstLocal.departement);
+          setSelectedClassroomDepartment(firstLocal.departement);
+        }
+
+        // Set form value with the matched IDs
+        const matchedIds = matchedByName.map(l => l.id.toString());
+        console.log("Setting form locaux to IDs:", matchedIds);
+        form.setValue('locaux', matchedIds, { shouldValidate: false });
+      } else {
+        console.warn("Could not match any locaux by name");
+      }
+    } else {
+      console.log("No local objects extracted or allLocaux is empty");
+    }
+  }, [isEditMode, concour, form, loadingAmphitheaters, allLocaux]);
 
   // Keep form candidats in sync with selectedCandidats
   useEffect(() => {

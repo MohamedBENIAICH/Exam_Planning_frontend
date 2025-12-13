@@ -39,6 +39,10 @@ interface Concours {
   locaux: string;
   type_epreuve: string;
   status: string;
+  supervisors_notified: boolean;
+  candidats_notified: boolean;
+  supervisors_notified_at: string | null;
+  candidats_notified_at: string | null;
   created_at: string;
   updated_at: string;
   candidats: Candidat[];
