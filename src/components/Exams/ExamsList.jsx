@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { getLatestExams, deleteExam } from "@/services/examService";
+import { getLatestExams, deleteExam, getExamById } from "@/services/examService";
 import ExamForm from "./ExamForm";
 
 const ExamsList = () => {
@@ -89,9 +89,28 @@ const ExamsList = () => {
   };
 
   // Handle exam edit
-  const handleEditClick = (exam) => {
-    setExamToEdit(exam);
-    setIsEditDialogOpen(true);
+  const handleEditClick = async (exam) => {
+    try {
+      // Fetch the full exam data with all relationships
+      const response = await getExamById(exam.id);
+      if (response.status === 'success' && response.data) {
+        setExamToEdit(response.data);
+        setIsEditDialogOpen(true);
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les données de l'examen",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching exam details:", error);
+      toast({
+        title: "Erreur",
+        description: `Impossible de charger l'examen: ${error.message}`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleExamUpdate = async (updatedExam) => {

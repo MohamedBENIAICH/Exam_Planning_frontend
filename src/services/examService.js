@@ -72,26 +72,8 @@ export const getExamById = async (id) => {
 
     const data = await response.json();
 
-    // Convert backend data format to frontend format
-    if (data.status === "success" && data.data) {
-      const exam = data.data;
-      return {
-        ...data,
-        data: {
-          id: exam.id.toString(),
-          cycle: exam.cycle,
-          filiere: exam.filiere,
-          module: exam.module,
-          date: exam.date_examen,
-          startTime: exam.heure_debut,
-          endTime: exam.heure_fin,
-          classrooms: exam.locaux ? exam.locaux.split(",") : [],
-          supervisors: exam.superviseurs ? exam.superviseurs.split(",") : [],
-          students: exam.students ? exam.students.split(",") : [],
-        },
-      };
-    }
-
+    // Return the data as-is from the backend for the edit form
+    // The backend now returns the data in the correct format with all necessary IDs
     return data;
   } catch (error) {
     console.error(`Failed to fetch exam with ID ${id}:`, error);

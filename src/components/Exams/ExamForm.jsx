@@ -271,6 +271,48 @@ const ExamForm = ({
     }
   }, [exam, availableClassrooms]);
 
+  // Initialize selected department for professors when editing an exam
+  useEffect(() => {
+    const initializeProfessorsForEdit = async () => {
+      if (exam?.professeurs && Array.isArray(exam.professeurs) && exam.professeurs.length > 0) {
+        try {
+          // Fetch all professors to find the department
+          const response = await fetch(`http://localhost:8000/api/professeurs`);
+          if (response.ok) {
+            const allProfessors = await response.json();
+
+            // Find the first professor from the exam in the list
+            const examProfessor = allProfessors.find(
+              (prof) => prof.id === exam.professeurs[0]
+            );
+
+            if (examProfessor?.departement) {
+              // Set the department which will trigger loading professors from that department
+              setSelectedDepartment(examProfessor.departement);
+            } else {
+              // If no department found, just load all professors of that department
+              // by fetching professors by department for each possible department
+              // For now, set professors directly
+              const examProfessors = allProfessors.filter((prof) =>
+                exam.professeurs.includes(prof.id)
+              );
+              if (examProfessors.length > 0) {
+                setProfessorsByDepartment(examProfessors);
+                if (examProfessors[0].departement) {
+                  setSelectedDepartment(examProfessors[0].departement);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching professors for edit:", error);
+        }
+      }
+    };
+
+    initializeProfessorsForEdit();
+  }, [exam]);
+
   // Load formations
   useEffect(() => {
     const loadFormations = async () => {

@@ -81,17 +81,18 @@ interface Assignment {
 
 interface ExamToEdit {
   id: number;
-  cycle: string;
-  filiere: string;
-  module: string;
-  date: string;
-  startTime: string;
-  endTime: string;
+  formation: number | string;
+  filiere: number | string;
+  module: number | string;
+  semestre: string;
+  date_examen: string;
+  heure_debut: string;
+  heure_fin: string;
   locaux: string;
-  superviseurs: string;
-  data: {
-    locaux: number[];
-  };
+  superviseurs: any;
+  professeurs: any;
+  classroom_ids: number[];
+  students: any[];
 }
 
 const ExamSection = ({
@@ -189,59 +190,10 @@ const ExamSection = ({
     }
   };
 
-  const handleAddEditExam = async (exam: ExamToEdit) => {
+  const handleAddEditExam = async (result: any) => {
     try {
-      // Format the date to YYYY-MM-DD
-      const examDate = new Date(exam.date);
-      const formattedDate = format(examDate, "yyyy-MM-dd");
-
-      // Prepare the exam data for the API
-      const examData = {
-        cycle: exam.cycle,
-        filiere: exam.filiere,
-        module: exam.module,
-        date_examen: formattedDate,
-        heure_debut: exam.startTime,
-        heure_fin: exam.endTime,
-        locaux: exam.locaux,
-        superviseurs: exam.superviseurs,
-        classroom_ids: exam.data.locaux,
-        superviseur_ids: exam.superviseurs
-          .split(",")
-          .map((id) => parseInt(id.trim())),
-      };
-
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${exam.id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(examData),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update exam");
-      }
-
-      // Update the exams state with the response from the API
-      const updatedExam = await response.json();
-      onExamUpdate({
-        ...updatedExam.data,
-        id: exam.id,
-        cycle: exam.cycle,
-        filiere_name: exam.filiere,
-        module_name: exam.module,
-        date_examen: formattedDate,
-        heure_debut: exam.startTime,
-        heure_fin: exam.endTime,
-        locaux: exam.locaux,
-        superviseurs: exam.superviseurs,
-      });
-
+      // The ExamForm already handles the API call via updateExam service
+      // We just need to refresh the page or update the local state
       toast({
         title: "Examen mis à jour",
         description: "L'examen a été modifié avec succès",
@@ -251,6 +203,9 @@ const ExamSection = ({
 
       setIsDialogOpen(false);
       setEditingExam(null);
+
+      // Reload the exams list to show updated data
+      window.location.reload();
     } catch (error) {
       console.error("Error updating exam:", error);
       toast({
@@ -264,24 +219,36 @@ const ExamSection = ({
     }
   };
 
-  const handleEditExam = (exam: ApiExam) => {
-    // Convert the API exam format to the format expected by the edit dialog
-    const examToEdit = {
-      id: exam.id,
-      cycle: exam.cycle,
-      filiere: exam.filiere_name,
-      module: exam.module_name,
-      date: exam.date_examen,
-      startTime: exam.heure_debut,
-      endTime: exam.heure_fin,
-      locaux: exam.locaux,
-      superviseurs: exam.superviseurs,
-      data: {
-        locaux: exam.locaux.split(",").map((id) => parseInt(id.trim())),
-      },
-    };
-    setEditingExam(examToEdit);
-    setIsDialogOpen(true);
+  const handleEditExam = async (exam: ApiExam) => {
+    try {
+      // Fetch the full exam data with all necessary IDs and relationships
+      const response = await fetch(`http://127.0.0.1:8000/api/exams/${exam.id}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch exam: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'success' && data.data) {
+        // The backend now returns the data with proper IDs (formation, filiere, module, etc.)
+        setEditingExam(data.data);
+        setIsDialogOpen(true);
+      } else {
+        toast({
+          title: "Erreur",
+          description: "Impossible de charger les données de l'examen",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching exam details:", error);
+      toast({
+        title: "Erreur",
+        description: `Impossible de charger l'examen: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteClick = (exam: ApiExam) => {
