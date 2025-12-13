@@ -15,6 +15,8 @@ import {
   ChevronDown,
   User,
   Users,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import ClassroomAssignments from "@/components/ClassroomAssignments/ClassroomAssignments";
 import {
@@ -76,6 +78,10 @@ interface Concours {
   locaux: string;
   type_epreuve: string;
   status: string;
+  supervisors_notified: boolean;
+  candidats_notified: boolean;
+  supervisors_notified_at: string | null;
+  candidats_notified_at: string | null;
   created_at: string;
   updated_at: string;
   candidats: Candidat[];
@@ -140,7 +146,9 @@ const ConcoursSection = ({
 
   const [formLoading, setFormLoading] = useState(false);
   const [sendingConvocations, setSendingConvocations] = useState<{ [key: number]: boolean }>({});
-  const { toast } = useToast();
+  const [sendingSupervisorNotifications, setSendingSupervisorNotifications] = useState<{ [key: number]: boolean }>({});
+  const [sendingCandidatConvocations, setSendingCandidatConvocations] = useState<{ [key: number]: boolean }>({});
+  const { toast} = useToast();
 
   // Sort concours by date
   let sortedConcours = [...concours].sort(
@@ -201,7 +209,7 @@ const ConcoursSection = ({
     }
   };
 
-  // Handler to send convocations
+  // Handler to send convocations (legacy - keep for backward compatibility)
   const handleSendConvocations = async (concourId: number) => {
     try {
       setSendingConvocations(prev => ({ ...prev, [concourId]: true }));
@@ -232,6 +240,82 @@ const ConcoursSection = ({
       });
     } finally {
       setSendingConvocations(prev => ({ ...prev, [concourId]: false }));
+    }
+  };
+
+  // Handler to send supervisor/professor notifications
+  const handleSendSupervisorNotifications = async (concourId: number) => {
+    try {
+      setSendingSupervisorNotifications(prev => ({ ...prev, [concourId]: true }));
+
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/concours/${concourId}/send-supervisor-notifications-manual`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur lors de l'envoi des notifications");
+      }
+
+      toast({
+        title: "Succès",
+        description: "Les notifications ont été envoyées aux professeurs et superviseurs.",
+        className: "bg-green-50 border-green-200 text-green-800",
+      });
+
+      // Refresh the page
+      window.location.reload();
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'envoyer les notifications",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingSupervisorNotifications(prev => ({ ...prev, [concourId]: false }));
+    }
+  };
+
+  // Handler to send candidat convocations
+  const handleSendCandidatConvocations = async (concourId: number) => {
+    try {
+      setSendingCandidatConvocations(prev => ({ ...prev, [concourId]: true }));
+
+      const response = await fetch(
+        `http://127.0.0.1:8000/api/concours/${concourId}/send-candidat-convocations-manual`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Erreur lors de l'envoi des convocations");
+      }
+
+      toast({
+        title: "Succès",
+        description: `Les convocations ont été envoyées à ${data.candidats_count} candidat(s).`,
+        className: "bg-green-50 border-green-200 text-green-800",
+      });
+
+      // Refresh the page
+      window.location.reload();
+    } catch (error: any) {
+      toast({
+        title: "Erreur",
+        description: error.message || "Impossible d'envoyer les convocations",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingCandidatConvocations(prev => ({ ...prev, [concourId]: false }));
     }
   };
 
@@ -505,7 +589,7 @@ const ConcoursSection = ({
                 
                 <div className="flex justify-between items-center pt-3 border-t">
                   <div className="flex space-x-2">
-                    {showEditButton && (
+                    {/* {showEditButton && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -514,7 +598,7 @@ const ConcoursSection = ({
                       >
                         Modifier
                       </Button>
-                    )}
+                    )} */}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -523,36 +607,77 @@ const ConcoursSection = ({
                       Détails
                     </Button>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDownloadReport(concours.id)}
-                      disabled={concours.status === 'annulé'}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Compte Rendu
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSendConvocations(concours.id)}
-                      disabled={sendingConvocations[concours.id] || concours.status === 'annulé'}
-                    >
-                      {sendingConvocations[concours.id] ? (
-                        "Envoi..."
-                      ) : (
-                        <Mail className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col space-y-3 w-full">
+                    {/* Email Status Display */}
+                    <div className="flex items-center gap-3 text-sm px-2">
+                      <div className="flex items-center gap-1">
+                        {concours.supervisors_notified ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-gray-400" />
+                        )}
+                        <span className={concours.supervisors_notified ? "text-green-600" : "text-gray-500"}>
+                          Profs/Superviseurs
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {concours.candidats_notified ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-gray-400" />
+                        )}
+                        <span className={concours.candidats_notified ? "text-green-600" : "text-gray-500"}>
+                          Candidats
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadReport(concours.id)}
+                        disabled={concours.status === 'annulé'}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Compte Rendu
+                      </Button>
+
+                      {/* Show notification buttons only if not already sent */}
+                      {!concours.supervisors_notified && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendSupervisorNotifications(concours.id)}
+                          disabled={sendingSupervisorNotifications[concours.id] || concours.status === 'annulé'}
+                        >
+                          <Mail className="w-4 h-4 mr-2" />
+                          {sendingSupervisorNotifications[concours.id] ? "Envoi..." : "Envoyer aux Profs"}
+                        </Button>
                       )}
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteClick(concours)}
-                      disabled={concours.status === 'annulé'}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+
+                      {!concours.candidats_notified && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendCandidatConvocations(concours.id)}
+                          disabled={sendingCandidatConvocations[concours.id] || concours.status === 'annulé'}
+                        >
+                          <Mail className="w-4 h-4 mr-2" />
+                          {sendingCandidatConvocations[concours.id] ? "Envoi..." : "Envoyer aux Candidats"}
+                        </Button>
+                      )}
+
+                      {/* <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(concours)}
+                        disabled={concours.status === 'annulé'}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button> */}
+                    </div>
                   </div>
                 </div>
               </div>
