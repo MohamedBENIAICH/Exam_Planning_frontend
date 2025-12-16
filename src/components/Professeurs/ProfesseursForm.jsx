@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { z } from "zod";
+import { API_BASE_URL } from "@/services/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ const ProfesseursForm = ({ onSubmit, onCancel, initialValues }) => {
     const loadDepartments = async () => {
       setLoadingDepartments(true);
       try {
-        const response = await fetch("http://localhost:8000/api/departements");
+        const response = await fetch(`${API_BASE_URL}/departements`);
         const data = await response.json();
         if (data.status === "success") {
           setDepartments(data.data.map((dept) => dept.nom_departement));
@@ -74,7 +75,7 @@ const ProfesseursForm = ({ onSubmit, onCancel, initialValues }) => {
   const handleFormSubmit = async (values) => {
     try {
       // Send data to backend
-      const response = await fetch("http://localhost:8000/api/professeurs", {
+      const response = await fetch(`${API_BASE_URL}/professeurs`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

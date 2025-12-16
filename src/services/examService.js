@@ -1,13 +1,8 @@
+import api from "./api";
+
 /**
  * Service to handle CRUD operations for exams
  */
-
-// Use an environment variable if available, or default to localhost
-// This approach works with various build systems
-const API_URL =
-  import.meta.env?.VITE_API_URL ||
-  window.ENV_API_URL ||
-  "http://localhost:8000/api";
 
 /**
  * Get all exams
@@ -15,13 +10,8 @@ const API_URL =
  */
 export const getAllExams = async () => {
   try {
-    const response = await fetch(`${API_URL}/exams`);
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const response = await api.get("/exams");
+    const data = response.data;
 
     // Convert backend data format to frontend format
     if (data.status === "success" && Array.isArray(data.data)) {
@@ -64,17 +54,8 @@ export const getAllExams = async () => {
  */
 export const getExamById = async (id) => {
   try {
-    const response = await fetch(`${API_URL}/exams/${id}`);
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Return the data as-is from the backend for the edit form
-    // The backend now returns the data in the correct format with all necessary IDs
-    return data;
+    const response = await api.get(`/exams/${id}`);
+    return response.data;
   } catch (error) {
     console.error(`Failed to fetch exam with ID ${id}:`, error);
     throw error;
@@ -88,29 +69,10 @@ export const getExamById = async (id) => {
  */
 export const createExam = async (examData) => {
   try {
-    // The data should already be in the correct format from the form
-    const response = await fetch(`${API_URL}/exams`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(examData),
-    });
-
-    if (!response.ok) {
-      // Only show/log error if the response is not ok
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Error: ${response.status}`);
-    }
-
-    // Try to parse JSON, but if empty or invalid, just return a success object and do not log/throw
-    try {
-      return await response.json();
-    } catch {
-      return { success: true };
-    }
+    const response = await api.post("/exams", examData);
+    return response.data;
   } catch (error) {
-    // Only log/throw if it's a real error (not empty JSON)
+    // Only log/throw if it's a real error
     throw error;
   }
 };
@@ -139,14 +101,14 @@ export const updateExam = async (id, examData) => {
         : [],
       students: Array.isArray(examData.students)
         ? examData.students.map((student) => ({
-            studentId: student.studentId,
-            firstName: student.firstName || student.prenom,
-            lastName: student.lastName || student.nom,
-            email:
-              student.email || `${student.studentId || student.id}@example.com`,
-            program: student.program || values.filiere,
-            cne: student.cne,
-          }))
+          studentId: student.studentId,
+          firstName: student.firstName || student.prenom,
+          lastName: student.lastName || student.nom,
+          email:
+            student.email || `${student.studentId || student.id}@example.com`,
+          program: student.program || values.filiere,
+          cne: student.cne,
+        }))
         : [],
     };
 
@@ -156,21 +118,8 @@ export const updateExam = async (id, examData) => {
 
     console.log("Sending formatted data to API for update:", formattedData);
 
-    const response = await fetch(`${API_URL}/exams/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formattedData),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("API error response:", errorData);
-      throw new Error(errorData.message || `Error: ${response.status}`);
-    }
-
-    return await response.json();
+    const response = await api.put(`/exams/${id}`, formattedData);
+    return response.data;
   } catch (error) {
     console.error(`Failed to update exam with ID ${id}:`, error);
     throw error;
@@ -184,15 +133,8 @@ export const updateExam = async (id, examData) => {
  */
 export const deleteExam = async (id) => {
   try {
-    const response = await fetch(`${API_URL}/exams/${id}`, {
-      method: "DELETE",
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    return await response.json();
+    const response = await api.delete(`/exams/${id}`);
+    return response.data;
   } catch (error) {
     console.error(`Failed to delete exam with ID ${id}:`, error);
     throw error;
@@ -205,13 +147,8 @@ export const deleteExam = async (id) => {
  */
 export const getLatestExams = async () => {
   try {
-    const response = await fetch(`${API_URL}/exams/latest`);
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const response = await api.get("/exams/latest");
+    const data = response.data;
 
     // Convert backend data format to frontend format
     if (data.status === "success" && Array.isArray(data.data)) {
@@ -292,16 +229,12 @@ export const getLatestExams = async () => {
  */
 export const downloadExamPdf = async (id) => {
   try {
-    const response = await fetch(`${API_URL}/exams/${id}/download-pdf`, {
-      method: "GET",
+    const response = await api.get(`/exams/${id}/download-pdf`, {
+      responseType: "blob",
     });
 
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
     // Get the filename from the Content-Disposition header
-    const contentDisposition = response.headers.get("Content-Disposition");
+    const contentDisposition = response.headers["content-disposition"];
     let filename = "convocation_examen.pdf";
 
     if (contentDisposition) {
@@ -311,11 +244,8 @@ export const downloadExamPdf = async (id) => {
       }
     }
 
-    // Convert response to blob
-    const blob = await response.blob();
-
     // Create download link
-    const url = window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;

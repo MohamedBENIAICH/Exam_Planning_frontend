@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { z } from "zod";
+import { API_BASE_URL } from "@/services/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -50,7 +51,7 @@ const ModulesForm = ({ onSubmit, onCancel, initialValues }) => {
     const fetchFormations = async () => {
       setLoadingFormations(true);
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/formations/");
+        const response = await fetch(`${API_BASE_URL}/formations/`);
         const data = await response.json();
         if (Array.isArray(data)) {
           setFormations(data);
@@ -76,7 +77,7 @@ const ModulesForm = ({ onSubmit, onCancel, initialValues }) => {
       return;
     }
     setLoadingFilieres(true);
-    fetch(`http://127.0.0.1:8000/api/formations/${id_formation}/filieres`)
+    fetch(`${API_BASE_URL}/formations/${id_formation}/filieres`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -100,7 +101,7 @@ const ModulesForm = ({ onSubmit, onCancel, initialValues }) => {
       };
       console.log("Données envoyées au backend :", payload); // <-- Ajout du log
 
-      const response = await fetch("http://127.0.0.1:8000/api/modules", {
+      const response = await fetch(`${API_BASE_URL}/modules`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -41,6 +41,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { createExam, updateExam } from "../../services/examService";
 import ImportCSV from "../Students/ImportCSV";
 import { getAvailableClassrooms } from "@/services/classroomService";
+import { API_BASE_URL } from "@/services/api";
 import {
   getSupervisorsByDepartment,
   getDepartments,
@@ -116,57 +117,57 @@ const ExamForm = ({
     resolver: zodResolver(formSchema),
     defaultValues: exam
       ? {
-          formation: exam.formation?.toString() || "",
-          filiere: exam.filiere?.toString() || "",
-          semester: exam.semestre?.toString() || "",
-          module: exam.module?.toString() || "",
-          date: exam.date_examen ? new Date(exam.date_examen) : new Date(),
-          startTime: exam.heure_debut || "09:00",
-          endTime: exam.heure_fin || "11:00",
-          classrooms: Array.isArray(exam.classroom_ids)
-            ? exam.classroom_ids
-            : [],
-          supervisors: Array.isArray(exam.superviseurs)
-            ? exam.superviseurs.map((supervisor) => {
-                const id =
-                  typeof supervisor === "object" ? supervisor.id : supervisor;
-                const numId = typeof id === "string" ? parseInt(id, 10) : id;
-                return isNaN(numId) ? 0 : numId;
-              })
-            : typeof exam.superviseurs === "string"
+        formation: exam.formation?.toString() || "",
+        filiere: exam.filiere?.toString() || "",
+        semester: exam.semestre?.toString() || "",
+        module: exam.module?.toString() || "",
+        date: exam.date_examen ? new Date(exam.date_examen) : new Date(),
+        startTime: exam.heure_debut || "09:00",
+        endTime: exam.heure_fin || "11:00",
+        classrooms: Array.isArray(exam.classroom_ids)
+          ? exam.classroom_ids
+          : [],
+        supervisors: Array.isArray(exam.superviseurs)
+          ? exam.superviseurs.map((supervisor) => {
+            const id =
+              typeof supervisor === "object" ? supervisor.id : supervisor;
+            const numId = typeof id === "string" ? parseInt(id, 10) : id;
+            return isNaN(numId) ? 0 : numId;
+          })
+          : typeof exam.superviseurs === "string"
             ? exam.superviseurs.split(",").map((s) => {
-                const numId = parseInt(s.trim(), 10);
-                return isNaN(numId) ? 0 : numId;
-              })
+              const numId = parseInt(s.trim(), 10);
+              return isNaN(numId) ? 0 : numId;
+            })
             : [],
-          professors: Array.isArray(exam.professeurs)
-            ? exam.professeurs.map((professor) => {
-                const id =
-                  typeof professor === "object" ? professor.id : professor;
-                const numId = typeof id === "string" ? parseInt(id, 10) : id;
-                return isNaN(numId) ? 0 : numId;
-              })
-            : typeof exam.professeurs === "string"
+        professors: Array.isArray(exam.professeurs)
+          ? exam.professeurs.map((professor) => {
+            const id =
+              typeof professor === "object" ? professor.id : professor;
+            const numId = typeof id === "string" ? parseInt(id, 10) : id;
+            return isNaN(numId) ? 0 : numId;
+          })
+          : typeof exam.professeurs === "string"
             ? exam.professeurs.split(",").map((s) => {
-                const numId = parseInt(s.trim(), 10);
-                return isNaN(numId) ? 0 : numId;
-              })
+              const numId = parseInt(s.trim(), 10);
+              return isNaN(numId) ? 0 : numId;
+            })
             : [],
-          students: Array.isArray(exam.students) ? exam.students : [],
-        }
+        students: Array.isArray(exam.students) ? exam.students : [],
+      }
       : {
-          formation: "",
-          filiere: "",
-          semester: "",
-          module: "",
-          date: new Date(),
-          startTime: "09:00",
-          endTime: "11:00",
-          classrooms: [],
-          supervisors: [],
-          professors: [],
-          students: [],
-        },
+        formation: "",
+        filiere: "",
+        semester: "",
+        module: "",
+        date: new Date(),
+        startTime: "09:00",
+        endTime: "11:00",
+        classrooms: [],
+        supervisors: [],
+        professors: [],
+        students: [],
+      },
   });
 
   // Reset form when exam changes
@@ -184,30 +185,30 @@ const ExamForm = ({
         classrooms: Array.isArray(exam.classroom_ids) ? exam.classroom_ids : [],
         supervisors: Array.isArray(exam.superviseurs)
           ? exam.superviseurs.map((supervisor) => {
-              const id =
-                typeof supervisor === "object" ? supervisor.id : supervisor;
-              const numId = typeof id === "string" ? parseInt(id, 10) : id;
-              return isNaN(numId) ? 0 : numId;
-            })
+            const id =
+              typeof supervisor === "object" ? supervisor.id : supervisor;
+            const numId = typeof id === "string" ? parseInt(id, 10) : id;
+            return isNaN(numId) ? 0 : numId;
+          })
           : typeof exam.superviseurs === "string"
-          ? exam.superviseurs.split(",").map((s) => {
+            ? exam.superviseurs.split(",").map((s) => {
               const numId = parseInt(s.trim(), 10);
               return isNaN(numId) ? 0 : numId;
             })
-          : [],
+            : [],
         professors: Array.isArray(exam.professeurs)
           ? exam.professeurs.map((professor) => {
-              const id =
-                typeof professor === "object" ? professor.id : professor;
-              const numId = typeof id === "string" ? parseInt(id, 10) : id;
-              return isNaN(numId) ? 0 : numId;
-            })
+            const id =
+              typeof professor === "object" ? professor.id : professor;
+            const numId = typeof id === "string" ? parseInt(id, 10) : id;
+            return isNaN(numId) ? 0 : numId;
+          })
           : typeof exam.professeurs === "string"
-          ? exam.professeurs.split(",").map((s) => {
+            ? exam.professeurs.split(",").map((s) => {
               const numId = parseInt(s.trim(), 10);
               return isNaN(numId) ? 0 : numId;
             })
-          : [],
+            : [],
         students: Array.isArray(exam.students) ? exam.students : [],
       });
     }
@@ -275,7 +276,7 @@ const ExamForm = ({
       if (exam?.professeurs && Array.isArray(exam.professeurs) && exam.professeurs.length > 0) {
         try {
           // Fetch all professors to find the department
-          const response = await fetch(`http://localhost:8000/api/professeurs`);
+          const response = await fetch(`${API_BASE_URL}/professeurs`);
           if (response.ok) {
             const allProfessors = await response.json();
 
@@ -346,7 +347,7 @@ const ExamForm = ({
         try {
           // First API call to get scheduled classroom IDs
           const response = await fetch(
-            `http://127.0.0.1:8000/api/classrooms/search?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}`
+            `${API_BASE_URL}/classrooms/search?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}`
           );
           const data = await response.json();
 
@@ -360,7 +361,7 @@ const ExamForm = ({
             if (scheduledClassroomIds.length >= 0) {
               // Second API call to get available classrooms
               const availableResponse = await fetch(
-                `http://127.0.0.1:8000/api/classrooms/not-in-list`,
+                `${API_BASE_URL}/classrooms/not-in-list`,
                 {
                   method: "POST",
                   headers: {
@@ -418,7 +419,7 @@ const ExamForm = ({
     const loadDepartments = async () => {
       try {
         setLoadingDepartments(true);
-        const response = await fetch("http://localhost:8000/api/departements");
+        const response = await fetch(`${API_BASE_URL}/departements`);
         const data = await response.json();
 
         if (data.status === "success") {
@@ -456,7 +457,7 @@ const ExamForm = ({
         // Fetch superviseurs (no department dependency)
         setLoadingSupervisors(true);
         const superviseursResponse = await fetch(
-          `http://localhost:8000/api/superviseurs`
+          `${API_BASE_URL}/superviseurs`
         );
         const superviseursData = await superviseursResponse.json();
         setSupervisorsByDepartment(
@@ -467,7 +468,7 @@ const ExamForm = ({
         if (selectedDepartment) {
           setLoadingProfessors(true);
           const professeursResponse = await fetch(
-            `http://localhost:8000/api/professeurs/by-departement?departement=${selectedDepartment}`
+            `${API_BASE_URL}/professeurs/by-departement?departement=${selectedDepartment}`
           );
           const professeursData = await professeursResponse.json();
           setProfessorsByDepartment(
@@ -583,7 +584,7 @@ const ExamForm = ({
       try {
         setLoadingAmphitheaters(true);
         const response = await fetch(
-          "http://localhost:8000/api/classrooms/amphitheaters"
+          `${API_BASE_URL}/classrooms/amphitheaters`
         );
         const data = await response.json();
 
@@ -634,7 +635,7 @@ const ExamForm = ({
 
         // First API call to get scheduled classrooms
         const scheduledResponse = await fetch(
-          `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
+          `${API_BASE_URL}/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
         );
         const scheduledData = await scheduledResponse.json();
 
@@ -644,7 +645,7 @@ const ExamForm = ({
 
           // Second API call to get available classrooms
           const availableResponse = await fetch(
-            "http://localhost:8000/api/classrooms/not-in-list",
+            `${API_BASE_URL}/classrooms/not-in-list`,
             {
               method: "POST",
               headers: {
@@ -706,12 +707,12 @@ const ExamForm = ({
       // Map selected supervisor IDs to their complete information
       const supervisorsToSubmit = values.supervisors
         ? values.supervisors
-            .map((supervisorId) =>
-              supervisorsByDepartment.find(
-                (supervisor) => supervisor.id === supervisorId
-              )
+          .map((supervisorId) =>
+            supervisorsByDepartment.find(
+              (supervisor) => supervisor.id === supervisorId
             )
-            .filter((supervisor) => supervisor !== undefined)
+          )
+          .filter((supervisor) => supervisor !== undefined)
         : [];
 
       // Map selected professor IDs to their complete information
@@ -865,7 +866,7 @@ const ExamForm = ({
           } else {
             throw new Error(
               assignmentData.message ||
-                "Erreur lors de l'affectation des étudiants."
+              "Erreur lors de l'affectation des étudiants."
             );
           }
         }
@@ -1153,10 +1154,10 @@ const ExamForm = ({
                               {!form.getValues("formation")
                                 ? "Veuillez d'abord sélectionner une formation"
                                 : !form.getValues("filiere")
-                                ? "Veuillez d'abord sélectionner une filière"
-                                : !form.getValues("semester")
-                                ? "Veuillez d'abord sélectionner un semestre"
-                                : "Aucun module disponible pour cette combinaison"}
+                                  ? "Veuillez d'abord sélectionner une filière"
+                                  : !form.getValues("semester")
+                                    ? "Veuillez d'abord sélectionner un semestre"
+                                    : "Aucun module disponible pour cette combinaison"}
                             </div>
                           )}
                         </SelectContent>
@@ -1656,75 +1657,75 @@ const ExamForm = ({
                     {/* Superviseurs List - Only show if not only classrooms selected */}
                     {(!selectedClassroomType ||
                       selectedClassroomType === "amphi") && (
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="text-sm font-medium text-slate-700">
-                            Superviseur
-                          </h4>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="text-sm text-blue-600 hover:text-blue-700"
-                            onClick={() =>
-                              setShowSuperviseursList(!showSuperviseursList)
-                            }
-                          >
-                            {showSuperviseursList
-                              ? "Masquer la liste des superviseurs"
-                              : "Afficher tous les superviseurs"}
-                          </Button>
-                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium text-slate-700">
+                              Superviseur
+                            </h4>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="text-sm text-blue-600 hover:text-blue-700"
+                              onClick={() =>
+                                setShowSuperviseursList(!showSuperviseursList)
+                              }
+                            >
+                              {showSuperviseursList
+                                ? "Masquer la liste des superviseurs"
+                                : "Afficher tous les superviseurs"}
+                            </Button>
+                          </div>
 
-                        {showSuperviseursList && (
-                          <>
-                            {loadingSupervisors ? (
-                              <div className="text-center text-slate-500 py-2">
-                                Chargement des superviseurs...
-                              </div>
-                            ) : supervisorsByDepartment.length > 0 ? (
-                              <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
-                                {supervisorsByDepartment.map((supervisor) => (
-                                  <div
-                                    key={supervisor.id}
-                                    className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value.includes(
-                                          supervisor.id
-                                        )}
-                                        onCheckedChange={(checked) => {
-                                          if (checked) {
-                                            field.onChange([
-                                              ...field.value,
-                                              supervisor.id,
-                                            ]);
-                                          } else {
-                                            field.onChange(
-                                              field.value.filter(
-                                                (id) => id !== supervisor.id
-                                              )
-                                            );
-                                          }
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <label className="text-sm leading-none cursor-pointer flex-1">
-                                      {supervisor.prenom} {supervisor.nom} -{" "}
-                                      {supervisor.poste}
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="text-center text-slate-500 py-2">
-                                Aucun superviseur disponible
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    )}
+                          {showSuperviseursList && (
+                            <>
+                              {loadingSupervisors ? (
+                                <div className="text-center text-slate-500 py-2">
+                                  Chargement des superviseurs...
+                                </div>
+                              ) : supervisorsByDepartment.length > 0 ? (
+                                <div className="space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
+                                  {supervisorsByDepartment.map((supervisor) => (
+                                    <div
+                                      key={supervisor.id}
+                                      className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-100"
+                                    >
+                                      <FormControl>
+                                        <Checkbox
+                                          checked={field.value.includes(
+                                            supervisor.id
+                                          )}
+                                          onCheckedChange={(checked) => {
+                                            if (checked) {
+                                              field.onChange([
+                                                ...field.value,
+                                                supervisor.id,
+                                              ]);
+                                            } else {
+                                              field.onChange(
+                                                field.value.filter(
+                                                  (id) => id !== supervisor.id
+                                                )
+                                              );
+                                            }
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <label className="text-sm leading-none cursor-pointer flex-1">
+                                        {supervisor.prenom} {supervisor.nom} -{" "}
+                                        {supervisor.poste}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-center text-slate-500 py-2">
+                                  Aucun superviseur disponible
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                   </FormItem>
                 )}
               />
@@ -1733,109 +1734,109 @@ const ExamForm = ({
             {/* Selected Professors and Supervisors Section */}
             {(form.getValues("professors")?.length > 0 ||
               form.getValues("supervisors")?.length > 0) && (
-              <div className="mt-6 pt-4 border-t border-slate-200">
-                <h4 className="text-sm font-medium text-slate-700 mb-3">
-                  Personnel sélectionné
-                </h4>
-                <div className="space-y-2">
-                  {/* Selected Professors */}
-                  {form.getValues("professors")?.length > 0 && (
-                    <div className="mb-4">
-                      <h5 className="text-sm font-medium text-slate-600 mb-2">
-                        Professeurs ({form.getValues("professors").length})
-                      </h5>
-                      {form.getValues("professors").map((professorId) => {
-                        const professor = professorsByDepartment.find(
-                          (p) => p.id === professorId
-                        );
-                        if (!professor) return null;
+                <div className="mt-6 pt-4 border-t border-slate-200">
+                  <h4 className="text-sm font-medium text-slate-700 mb-3">
+                    Personnel sélectionné
+                  </h4>
+                  <div className="space-y-2">
+                    {/* Selected Professors */}
+                    {form.getValues("professors")?.length > 0 && (
+                      <div className="mb-4">
+                        <h5 className="text-sm font-medium text-slate-600 mb-2">
+                          Professeurs ({form.getValues("professors").length})
+                        </h5>
+                        {form.getValues("professors").map((professorId) => {
+                          const professor = professorsByDepartment.find(
+                            (p) => p.id === professorId
+                          );
+                          if (!professor) return null;
 
-                        return (
-                          <div
-                            key={professorId}
-                            className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-slate-500" />
-                              <span className="text-sm">
-                                {professor.prenom} {professor.nom} -{" "}
-                                {professor.poste}
-                              </span>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                const currentProfessors =
-                                  form.getValues("professors");
-                                form.setValue(
-                                  "professors",
-                                  currentProfessors.filter(
-                                    (id) => id !== professorId
-                                  )
-                                );
-                              }}
+                          return (
+                            <div
+                              key={professorId}
+                              className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
                             >
-                              Retirer
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Selected Supervisors */}
-                  {form.getValues("supervisors")?.length > 0 && (
-                    <div>
-                      <h5 className="text-sm font-medium text-slate-600 mb-2">
-                        Superviseurs ({form.getValues("supervisors").length})
-                      </h5>
-                      {form.getValues("supervisors").map((supervisorId) => {
-                        const supervisor = supervisorsByDepartment.find(
-                          (s) => s.id === supervisorId
-                        );
-                        if (!supervisor) return null;
-
-                        return (
-                          <div
-                            key={supervisorId}
-                            className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
-                          >
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-slate-500" />
-                              <span className="text-sm">
-                                {supervisor.prenom} {supervisor.nom} -{" "}
-                                {supervisor.poste}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4 text-slate-500" />
+                                <span className="text-sm">
+                                  {professor.prenom} {professor.nom} -{" "}
+                                  {professor.poste}
+                                </span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                  const currentProfessors =
+                                    form.getValues("professors");
+                                  form.setValue(
+                                    "professors",
+                                    currentProfessors.filter(
+                                      (id) => id !== professorId
+                                    )
+                                  );
+                                }}
+                              >
+                                Retirer
+                              </Button>
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => {
-                                const currentSupervisors =
-                                  form.getValues("supervisors");
-                                form.setValue(
-                                  "supervisors",
-                                  currentSupervisors.filter(
-                                    (id) => id !== supervisorId
-                                  )
-                                );
-                              }}
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Selected Supervisors */}
+                    {form.getValues("supervisors")?.length > 0 && (
+                      <div>
+                        <h5 className="text-sm font-medium text-slate-600 mb-2">
+                          Superviseurs ({form.getValues("supervisors").length})
+                        </h5>
+                        {form.getValues("supervisors").map((supervisorId) => {
+                          const supervisor = supervisorsByDepartment.find(
+                            (s) => s.id === supervisorId
+                          );
+                          if (!supervisor) return null;
+
+                          return (
+                            <div
+                              key={supervisorId}
+                              className="flex items-center justify-between gap-2 p-2 rounded-md bg-slate-50 border border-slate-200"
                             >
-                              Retirer
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4 text-slate-500" />
+                                <span className="text-sm">
+                                  {supervisor.prenom} {supervisor.nom} -{" "}
+                                  {supervisor.poste}
+                                </span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => {
+                                  const currentSupervisors =
+                                    form.getValues("supervisors");
+                                  form.setValue(
+                                    "supervisors",
+                                    currentSupervisors.filter(
+                                      (id) => id !== supervisorId
+                                    )
+                                  );
+                                }}
+                              >
+                                Retirer
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
 
           {/* Form Footer - Fixed at bottom */}

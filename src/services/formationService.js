@@ -1,5 +1,4 @@
-// Use an environment variable if available, or default to localhost
-const API_URL = import.meta.env?.VITE_API_URL || "http://localhost:8000/api";
+import api from "./api";
 
 /**
  * Get all formations
@@ -7,13 +6,8 @@ const API_URL = import.meta.env?.VITE_API_URL || "http://localhost:8000/api";
  */
 export const getFormations = async () => {
   try {
-    const response = await fetch(`${API_URL}/formations`);
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const response = await api.get("/formations");
+    const data = response.data;
 
     // Convert backend data format to frontend format
     if (data.status === "success" && Array.isArray(data.data)) {
@@ -37,15 +31,8 @@ export const getFormations = async () => {
  */
 export const getFilieresByFormation = async (formationId) => {
   try {
-    const response = await fetch(
-      `${API_URL}/formations/${formationId}/filieres`
-    );
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const response = await api.get(`/formations/${formationId}/filieres`);
+    const data = response.data;
 
     // Convert backend data format to frontend format
     if (data.status === "success" && Array.isArray(data.data)) {
@@ -77,15 +64,10 @@ export const getModulesByFormationAndFiliere = async (
   semester
 ) => {
   try {
-    const response = await fetch(
-      `${API_URL}/formations/${formationId}/filieres/${filiereId}/modules/${semester}`
+    const response = await api.get(
+      `/formations/${formationId}/filieres/${filiereId}/modules/${semester}`
     );
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = response.data;
 
     // Convert backend data format to frontend format
     if (data.status === "success" && Array.isArray(data.data)) {

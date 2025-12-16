@@ -1,4 +1,4 @@
-import { API_URL } from "./api";
+import api from "./api";
 
 /**
  * Get students by their IDs
@@ -7,19 +7,8 @@ import { API_URL } from "./api";
  */
 export const getStudentsByIds = async (studentIds) => {
   try {
-    const response = await fetch(`${API_URL}/students`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ student_ids: studentIds }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const response = await api.post("/students", { student_ids: studentIds });
+    const data = response.data;
 
     if (data.status === "success") {
       return data.data;

@@ -1,7 +1,4 @@
-import axios from "axios";
-
-// Use Vite's environment variable format
-const API_URL = import.meta.env?.VITE_API_URL || "http://localhost:8000/api";
+import api from "./api";
 
 /**
  * Get all departments
@@ -9,7 +6,7 @@ const API_URL = import.meta.env?.VITE_API_URL || "http://localhost:8000/api";
  */
 export const getDepartments = async () => {
   try {
-    const response = await axios.get(`${API_URL}/superviseurs/departements`);
+    const response = await api.get("/superviseurs/departements");
     return response.data;
   } catch (error) {
     console.error("Error fetching departments:", error);
@@ -24,7 +21,7 @@ export const getDepartments = async () => {
  */
 export const getSupervisorsByDepartment = async (department) => {
   try {
-    const response = await axios.get(`${API_URL}/superviseurs/by-departement`, {
+    const response = await api.get("/superviseurs/by-departement", {
       params: { departement: department },
     });
     return response.data;

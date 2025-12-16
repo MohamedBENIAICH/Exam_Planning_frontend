@@ -1,10 +1,8 @@
-import axios from "axios";
-
-const API_URL = "http://localhost:8000/api";
+import api from "./api";
 
 export const getDepartments = async () => {
   try {
-    const response = await axios.get(`${API_URL}/departements`);
+    const response = await api.get("/departements");
     return response.data;
   } catch (error) {
     console.error("Error fetching departments:", error);
