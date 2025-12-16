@@ -29,6 +29,8 @@ const DonutChart = ({
   </div>
 );
 
+import api from "../services/api";
+
 const ExamScheduling = () => {
   const [upcomingExams, setUpcomingExams] = useState<any[]>([]);
   const [completedCount, setCompletedCount] = useState<number>(0);
@@ -38,11 +40,8 @@ const ExamScheduling = () => {
   useEffect(() => {
     const fetchUpcomingExams = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:8000/api/exams/upcoming"
-        );
-        const data = await response.json();
-        setUpcomingExams(Array.isArray(data.data) ? data.data : []);
+        const response = await api.get("/exams/upcoming");
+        setUpcomingExams(Array.isArray(response.data.data) ? response.data.data : []);
       } catch {
         setUpcomingExams([]);
       }
@@ -50,11 +49,8 @@ const ExamScheduling = () => {
 
     const fetchCompletedCount = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:8000/api/exams/count-passed"
-        );
-        const data = await response.json();
-        setCompletedCount(data.count || 0);
+        const response = await api.get("/exams/count-passed");
+        setCompletedCount(response.data.count || 0);
       } catch {
         setCompletedCount(0);
       }
@@ -62,11 +58,8 @@ const ExamScheduling = () => {
 
     const fetchClassroomCount = async () => {
       try {
-        const response = await fetch(
-          "http://localhost:8000/api/classrooms/count"
-        );
-        const data = await response.json();
-        setClassroomCount(data.count || 0);
+        const response = await api.get("/classrooms/count");
+        setClassroomCount(response.data.count || 0);
       } catch {
         setClassroomCount(0);
       }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Calendar, Users, Building } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import api from "../../services/api";
 
 interface StatsData {
   totalExams: number;
@@ -16,28 +17,16 @@ const StatsCards = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const endpoints = [
-          "http://127.0.0.1:8000/api/exams/count",
-          "http://127.0.0.1:8000/api/professeurs/count",
-          "http://127.0.0.1:8000/api/classrooms/count",
-        ];
-
-        const responses = await Promise.all(
-          endpoints.map((url) => fetch(url).then((res) => res.json()))
-        );
-
-        // Extract counts from responses
-        const counts = responses.map((response) => {
-          if (response.status === "success") {
-            return response.count ?? response.total ?? response.data ?? 0;
-          }
-          return 0;
-        });
+        const [examsRes, profsRes, classroomsRes] = await Promise.all([
+          api.get("/exams/count"),
+          api.get("/professeurs/count"),
+          api.get("/classrooms/count"),
+        ]);
 
         setStats({
-          totalExams: counts[0],
-          totalTeachers: counts[1],
-          availableClassrooms: counts[2],
+          totalExams: examsRes.data.count ?? examsRes.data.total ?? examsRes.data.data ?? 0,
+          totalTeachers: profsRes.data.count ?? profsRes.data.total ?? profsRes.data.data ?? 0,
+          availableClassrooms: classroomsRes.data.count ?? classroomsRes.data.total ?? classroomsRes.data.data ?? 0,
         });
       } catch (err) {
         console.error("Fetch error:", err);

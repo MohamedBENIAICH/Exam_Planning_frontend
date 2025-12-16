@@ -43,6 +43,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import ExamForm from "@/components/Exams/ExamForm";
 import { downloadExamPdf } from "@/services/examService";
+import api from "@/services/api";
 
 interface ApiExam {
   id: number;
@@ -171,19 +172,13 @@ const ExamSection = ({
     setIsLoadingAssignments(true);
     try {
       console.log(`Fetching assignments for exam ID: ${examId}`);
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${examId}/assignments`
-      );
-      
+      const response = await api.get(`/exams/${examId}/assignments`);
+
       console.log(`Assignments response status: ${response.status}`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+
+      const data = response.data;
       console.log("Assignments API Response:", data);
-      
+
       if (data.status === "success" && Array.isArray(data.data.assignments)) {
         setAssignments(data.data.assignments);
         console.log(`Found ${data.data.assignments.length} assignments`);
@@ -231,13 +226,9 @@ const ExamSection = ({
   const handleEditExam = async (exam: ApiExam) => {
     try {
       // Fetch the full exam data with all necessary IDs and relationships
-      const response = await fetch(`http://127.0.0.1:8000/api/exams/${exam.id}`);
+      const response = await api.get(`/exams/${exam.id}`);
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch exam: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
 
       if (data.status === 'success' && data.data) {
         // The backend now returns the data with proper IDs (formation, filiere, module, etc.)
@@ -267,16 +258,7 @@ const ExamSection = ({
 
   const handleDeleteExam = async (exam: ApiExam) => {
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${exam.id}/cancel`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to cancel exam");
-      }
+      await api.post(`/exams/${exam.id}/cancel`);
 
       toast({
         title: "Succès",
@@ -318,16 +300,7 @@ const ExamSection = ({
   const handleSendSupervisorNotifications = async (examId: number) => {
     setSendingSupervisorNotifications(prev => ({ ...prev, [examId]: true }));
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${examId}/send-supervisor-notifications`,
-        { method: "POST" }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to send notifications");
-      }
-
-      const data = await response.json();
+      await api.post(`/exams/${examId}/send-supervisor-notifications`);
 
       toast({
         title: "Succès",
@@ -352,16 +325,7 @@ const ExamSection = ({
   const handleSendStudentConvocations = async (examId: number) => {
     setSendingStudentConvocations(prev => ({ ...prev, [examId]: true }));
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${examId}/send-student-convocations`,
-        { method: "POST" }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to send convocations");
-      }
-
-      const data = await response.json();
+      await api.post(`/exams/${examId}/send-student-convocations`);
 
       toast({
         title: "Succès",
@@ -457,11 +421,10 @@ const ExamSection = ({
         <div key={dateKey} className="mb-6">
           <div className="flex items-center gap-2 mb-2">
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                isToday
+              className={`w-10 h-10 rounded-full flex items-center justify-center ${isToday
                   ? "bg-blue-100 text-blue-600"
                   : "bg-gray-100 text-gray-600"
-              }`}
+                }`}
             >
               <Calendar className="h-5 w-5" />
             </div>
@@ -636,8 +599,7 @@ const ExamSection = ({
               <CardDescription className="mt-1">
                 {!loading &&
                   !error &&
-                  `${sortedExams.length} examen${
-                    sortedExams.length > 1 ? "s" : ""
+                  `${sortedExams.length} examen${sortedExams.length > 1 ? "s" : ""
                   }`}
               </CardDescription>
             </div>
@@ -720,7 +682,7 @@ const ExamSection = ({
                           <Calendar className="h-4 w-4" />
                         </div>
                         <span className="text-gray-800">
-                          {selectedExam.date_examen ? 
+                          {selectedExam.date_examen ?
                             format(new Date(selectedExam.date_examen), "PPP", { locale: fr }) :
                             "Date non spécifiée"
                           }
@@ -793,7 +755,7 @@ const ExamSection = ({
                       <div className="flex justify-between">
                         <span className="text-gray-600">Créé le:</span>
                         <span className="font-medium">
-                          {selectedExam.created_at ? 
+                          {selectedExam.created_at ?
                             format(new Date(selectedExam.created_at), "dd/MM/yyyy HH:mm", { locale: fr }) :
                             "Non spécifié"
                           }
@@ -802,7 +764,7 @@ const ExamSection = ({
                       <div className="flex justify-between">
                         <span className="text-gray-600">Modifié le:</span>
                         <span className="font-medium">
-                          {selectedExam.updated_at ? 
+                          {selectedExam.updated_at ?
                             format(new Date(selectedExam.updated_at), "dd/MM/yyyy HH:mm", { locale: fr }) :
                             "Non spécifié"
                           }

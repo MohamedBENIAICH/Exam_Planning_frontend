@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import ConcoursForm from "@/components/Concours/ConcoursForm";
+import api from "@/services/api";
 
 interface Candidat {
   id: number;
@@ -149,7 +150,7 @@ const ConcoursSection = ({
   const [sendingConvocations, setSendingConvocations] = useState<{ [key: number]: boolean }>({});
   const [sendingSupervisorNotifications, setSendingSupervisorNotifications] = useState<{ [key: number]: boolean }>({});
   const [sendingCandidatConvocations, setSendingCandidatConvocations] = useState<{ [key: number]: boolean }>({});
-  const { toast} = useToast();
+  const { toast } = useToast();
 
   // Sort concours by date
   let sortedConcours = [...concours].sort(
@@ -178,19 +179,11 @@ const ConcoursSection = ({
   // Handler to download concours report
   const handleDownloadReport = async (concourId: number) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/concours/${concourId}/download-report`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/pdf",
-        },
+      const response = await api.get(`/concours/${concourId}/download-report`, {
+        responseType: "blob",
       });
 
-      if (!response.ok) {
-        throw new Error("Erreur lors de la récupération du compte rendu");
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(new Blob([response.data]));
       const a = document.createElement("a");
       a.href = url;
       a.download = `Compte_Rendu_${concourId}.pdf`;
@@ -215,19 +208,8 @@ const ConcoursSection = ({
     try {
       setSendingConvocations(prev => ({ ...prev, [concourId]: true }));
 
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/concours/${concourId}/send-convocations`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur lors de l'envoi des convocations");
-      }
+      const response = await api.post(`/concours/${concourId}/send-convocations`);
+      const data = response.data;
 
       toast({
         title: "Convocations envoyées",
@@ -249,19 +231,7 @@ const ConcoursSection = ({
     try {
       setSendingSupervisorNotifications(prev => ({ ...prev, [concourId]: true }));
 
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/concours/${concourId}/send-supervisor-notifications-manual`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur lors de l'envoi des notifications");
-      }
+      await api.post(`/concours/${concourId}/send-supervisor-notifications-manual`);
 
       toast({
         title: "Succès",
@@ -287,19 +257,8 @@ const ConcoursSection = ({
     try {
       setSendingCandidatConvocations(prev => ({ ...prev, [concourId]: true }));
 
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/concours/${concourId}/send-candidat-convocations-manual`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur lors de l'envoi des convocations");
-      }
+      const response = await api.post(`/concours/${concourId}/send-candidat-convocations-manual`);
+      const data = response.data;
 
       toast({
         title: "Succès",
@@ -326,18 +285,10 @@ const ConcoursSection = ({
       setFormLoading(true);
       if (editingConcour) {
         // Update concours
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/concours/${editingConcour.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(concour),
-          }
-        );
-        if (!response.ok) throw new Error("Erreur lors de la modification");
+        const response = await api.put(`/concours/${editingConcour.id}`, concour);
 
         // Get the updated concours data from the backend (includes email status)
-        const updatedData = await response.json();
+        const updatedData = response.data;
 
         toast({
           title: "Succès",
@@ -350,13 +301,8 @@ const ConcoursSection = ({
         setIsDialogOpen(false);
       } else {
         // Create concours
-        const response = await fetch("http://127.0.0.1:8000/api/concours", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(concour),
-        });
-        if (!response.ok) throw new Error("Erreur lors de l'ajout");
-        const data = await response.json();
+        const response = await api.post("/concours", concour);
+        const data = response.data;
         toast({
           title: "Succès",
           description:
@@ -387,16 +333,7 @@ const ConcoursSection = ({
   const handleDeleteConcours = async (concoursId: number) => {
     setIsDeleting(true);
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/concours/${concoursId}`,
-        {
-          method: "DELETE",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("La suppression du concours a échoué");
-      }
+      await api.delete(`/concours/${concoursId}`);
 
       toast({
         title: "Succès",
@@ -432,12 +369,8 @@ const ConcoursSection = ({
     setDetailLoading(true);
     setIsDetailDialogOpen(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/concours/${concours.id}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch concours details");
-      }
-      const data = await response.json();
-      setSelectedConcours(data);
+      const response = await api.get(`/concours/${concours.id}`);
+      setSelectedConcours(response.data);
     } catch (error) {
       console.error("Error fetching details:", error);
       toast({
@@ -543,7 +476,7 @@ const ConcoursSection = ({
                     {format(new Date(concours.date_concours), "dd/MM/yyyy")}
                   </Badge>
                 </div>
-                
+
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="space-y-1">
                     <div className="flex items-center text-sm text-gray-500">
@@ -555,7 +488,7 @@ const ConcoursSection = ({
                       <span>{concours.candidats.length} candidats</span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="flex items-center text-sm text-gray-500">
                       <Building className="w-4 h-4 mr-2" />
@@ -563,8 +496,8 @@ const ConcoursSection = ({
                         {(() => {
                           try {
                             const parsed = typeof concours.locaux === 'string' ? JSON.parse(concours.locaux) : concours.locaux;
-                            return Array.isArray(parsed) && parsed[0]?.nom_local 
-                              ? parsed[0].nom_local 
+                            return Array.isArray(parsed) && parsed[0]?.nom_local
+                              ? parsed[0].nom_local
                               : (Array.isArray(parsed) ? parsed[0]?.nom_du_local || 'N/A' : concours.locaux || 'N/A');
                           } catch (e) {
                             return concours.locaux || 'N/A';
@@ -577,7 +510,7 @@ const ConcoursSection = ({
                       <span>{concours.type_epreuve}</span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     {concours.superviseurs?.length > 0 && (
                       <div className="flex items-center text-sm text-gray-500">
@@ -597,7 +530,7 @@ const ConcoursSection = ({
                     )}
                   </div>
                 </div>
-                
+
                 <div className="pt-3 border-t">
                   <div className="flex items-start justify-between gap-4">
                     {/* Left side: Details button */}
@@ -805,7 +738,7 @@ const ConcoursSection = ({
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="bg-gray-50 p-4 rounded-md">
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
                       Localisation
@@ -838,7 +771,7 @@ const ConcoursSection = ({
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div className="bg-gray-50 p-4 rounded-md">
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
@@ -850,7 +783,7 @@ const ConcoursSection = ({
                           <Calendar className="h-4 w-4" />
                         </div>
                         <span className="text-gray-800">
-                          {selectedConcours.date_concours ? 
+                          {selectedConcours.date_concours ?
                             format(new Date(selectedConcours.date_concours), "PPP", { locale: fr }) :
                             "Date non spécifiée"
                           }
@@ -866,7 +799,7 @@ const ConcoursSection = ({
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="bg-gray-50 p-4 rounded-md">
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
                       Candidats
@@ -891,7 +824,7 @@ const ConcoursSection = ({
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="bg-gray-50 p-4 rounded-md">
                     <h3 className="text-sm uppercase text-gray-500 font-medium mb-1">
                       Encadrement
@@ -910,7 +843,7 @@ const ConcoursSection = ({
                           </ul>
                         </div>
                       )}
-                      
+
                       {selectedConcours.professeurs && selectedConcours.professeurs.length > 0 && (
                         <div>
                           <span className="text-sm text-gray-600 font-medium">Professeurs:</span>
@@ -924,16 +857,16 @@ const ConcoursSection = ({
                           </ul>
                         </div>
                       )}
-                      
-                      {(!selectedConcours.superviseurs || selectedConcours.superviseurs.length === 0) && 
-                       (!selectedConcours.professeurs || selectedConcours.professeurs.length === 0) && (
-                        <p className="text-gray-500">Aucun encadrant spécifié</p>
-                      )}
+
+                      {(!selectedConcours.superviseurs || selectedConcours.superviseurs.length === 0) &&
+                        (!selectedConcours.professeurs || selectedConcours.professeurs.length === 0) && (
+                          <p className="text-gray-500">Aucun encadrant spécifié</p>
+                        )}
                     </div>
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-white border rounded-md overflow-hidden">
                 <div className="bg-gray-50 px-4 py-3 border-b flex justify-between items-center">
                   <h3 className="font-medium">Répartition des candidats</h3>
@@ -1000,8 +933,8 @@ const ConcoursSection = ({
             </div>
           )}
           <DialogFooter>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setSelectedConcours(null);
                 setShowCandidates(false);
@@ -1017,9 +950,9 @@ const ConcoursSection = ({
       <Dialog open={showClassroomAssignments} onOpenChange={setShowClassroomAssignments}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           {selectedConcours && (
-            <ClassroomAssignments 
-              concoursId={selectedConcours.id} 
-              onClose={() => setShowClassroomAssignments(false)} 
+            <ClassroomAssignments
+              concoursId={selectedConcours.id}
+              onClose={() => setShowClassroomAssignments(false)}
             />
           )}
         </DialogContent>
