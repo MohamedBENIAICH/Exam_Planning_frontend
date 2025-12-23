@@ -245,10 +245,8 @@ const ExamScheduling = () => {
   const fetchStudentsForExam = async (examId: string) => {
     setIsLoadingStudents(true);
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/students/by-exam/${examId}`
-      );
-      const data = await response.json();
+      const response = await api.get(`/students/by-exam/${examId}`);
+      const data = response.data;
 
       if (data.status === "success" && Array.isArray(data.data)) {
         setFetchedStudents(data.data);
@@ -265,10 +263,8 @@ const ExamScheduling = () => {
   const fetchAssignmentsForExam = async (examId: string) => {
     setIsLoadingAssignments(true);
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${examId}/assignments`
-      );
-      const data = await response.json();
+      const response = await api.get(`/exams/${examId}/assignments`);
+      const data = response.data;
       if (data.status === "success" && Array.isArray(data.data.assignments)) {
         setAssignments(data.data.assignments);
       } else {
@@ -287,10 +283,10 @@ const ExamScheduling = () => {
     filiereId: string
   ) => {
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/formations/${formationId}/filieres/${filiereId}`
+      const response = await api.get(
+        `/formations/${formationId}/filieres/${filiereId}`
       );
-      const data = await response.json();
+      const data = response.data;
 
       if (data.status === "success") {
         setFormationName(data.data.formation.formation_intitule);
@@ -358,22 +354,12 @@ const ExamScheduling = () => {
       // Update each classroom's availability
       for (const classroomId of numericClassroomIds) {
         try {
-        const response = await fetch(
-            `http://127.0.0.1:8000/api/classrooms/${classroomId}/disponibilite`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-              body: JSON.stringify({
-                disponible_pour_planification: isAvailable,
-              }),
-          }
-        );
-
-        if (!response.ok) {
-            throw new Error(`Failed to update classroom ${classroomId}`);
-          }
+          await api.put(
+            `/classrooms/${classroomId}/disponibilite`,
+            {
+              disponible_pour_planification: isAvailable,
+            }
+          );
         } catch (error) {
           console.error(`Error updating classroom ${classroomId}:`, error);
         }
@@ -496,16 +482,7 @@ const ExamScheduling = () => {
 
   const handleDeleteExam = async (examId) => {
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${examId}/cancel`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to cancel exam");
-      }
+      await api.post(`/exams/${examId}/cancel`);
 
       toast({
         title: "Succès",

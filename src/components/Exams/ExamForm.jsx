@@ -41,7 +41,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { createExam, updateExam } from "../../services/examService";
 import ImportCSV from "../Students/ImportCSV";
 import { getAvailableClassrooms } from "@/services/classroomService";
-import api, { API_BASE_URL } from "@/services/api";
+import api from "@/services/api";
 import {
   getSupervisorsByDepartment,
   getDepartments,
@@ -350,10 +350,10 @@ const ExamForm = ({
 
         try {
           // First API call to get scheduled classroom IDs
-          const response = await fetch(
-            `${API_BASE_URL}/classrooms/search?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}`
+          const response = await api.get(
+            `/classrooms/search?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}`
           );
-          const data = await response.json();
+          const data = response.data;
 
           if (data.status === "success") {
             const scheduledClassroomIds = data.data.scheduled_classroom_ids;
@@ -364,19 +364,13 @@ const ExamForm = ({
             // Ensure that scheduledClassroomIds is not empty before making the second API call
             if (scheduledClassroomIds.length >= 0) {
               // Second API call to get available classrooms
-              const availableResponse = await fetch(
-                `${API_BASE_URL}/classrooms/not-in-list`,
+              const availableResponse = await api.post(
+                "/classrooms/not-in-list",
                 {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    classroom_ids: scheduledClassroomIds,
-                  }), // Ensure this is an array
+                  classroom_ids: scheduledClassroomIds,
                 }
               );
-              const availableData = await availableResponse.json();
+              const availableData = availableResponse.data;
 
               if (availableData.status === "success") {
                 setAvailableClassrooms(availableData.data);
@@ -423,8 +417,8 @@ const ExamForm = ({
     const loadDepartments = async () => {
       try {
         setLoadingDepartments(true);
-        const response = await fetch(`${API_BASE_URL}/departements`);
-        const data = await response.json();
+        const response = await api.get("/departements");
+        const data = response.data;
 
         if (data.status === "success") {
           // Extract unique department names
@@ -460,10 +454,8 @@ const ExamForm = ({
       try {
         // Fetch superviseurs (no department dependency)
         setLoadingSupervisors(true);
-        const superviseursResponse = await fetch(
-          `${API_BASE_URL}/superviseurs`
-        );
-        const superviseursData = await superviseursResponse.json();
+        const superviseursResponse = await api.get("/superviseurs");
+        const superviseursData = superviseursResponse.data;
         setSupervisorsByDepartment(
           Array.isArray(superviseursData) ? superviseursData : []
         );
@@ -471,10 +463,10 @@ const ExamForm = ({
         // Only fetch professeurs if department is selected
         if (selectedDepartment) {
           setLoadingProfessors(true);
-          const professeursResponse = await fetch(
-            `${API_BASE_URL}/professeurs/by-departement?departement=${selectedDepartment}`
+          const professeursResponse = await api.get(
+            `/professeurs/by-departement?departement=${selectedDepartment}`
           );
-          const professeursData = await professeursResponse.json();
+          const professeursData = professeursResponse.data;
           setProfessorsByDepartment(
             Array.isArray(professeursData) ? professeursData : []
           );
@@ -587,10 +579,8 @@ const ExamForm = ({
     const fetchAmphitheaters = async () => {
       try {
         setLoadingAmphitheaters(true);
-        const response = await fetch(
-          `${API_BASE_URL}/classrooms/amphitheaters`
-        );
-        const data = await response.json();
+        const response = await api.get("/classrooms/amphitheaters");
+        const data = response.data;
 
         if (data.status === "success") {
           setAmphitheaters(data.data);
@@ -638,29 +628,23 @@ const ExamForm = ({
         const endTime = form.getValues("endTime");
 
         // First API call to get scheduled classrooms
-        const scheduledResponse = await fetch(
-          `${API_BASE_URL}/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
+        const scheduledResponse = await api.get(
+          `/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
         );
-        const scheduledData = await scheduledResponse.json();
+        const scheduledData = scheduledResponse.data;
 
         if (scheduledData.status === "success") {
           const scheduledClassroomIds =
             scheduledData.data.scheduled_classrooms.map((c) => c.id);
 
           // Second API call to get available classrooms
-          const availableResponse = await fetch(
-            `${API_BASE_URL}/classrooms/not-in-list`,
+          const availableResponse = await api.post(
+            "/classrooms/not-in-list",
             {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                classroom_ids: scheduledClassroomIds,
-              }),
+              classroom_ids: scheduledClassroomIds,
             }
           );
-          const availableData = await availableResponse.json();
+          const availableData = availableResponse.data;
 
           if (availableData.status === "success") {
             // Filter classrooms by selected department
