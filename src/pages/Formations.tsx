@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import {
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import FormationsForm from "@/components/Formations/FormationsForm";
 import { useToast } from "@/hooks/use-toast";
+import api from "@/services/api";
 
 const Formations = () => {
   const { toast } = useToast();
@@ -27,6 +28,7 @@ const Formations = () => {
   const [formations, setFormations] = useState<
     Array<{
       id_formation: number;
+      id?: number;
       formation_intitule: string;
     }>
   >([]);
@@ -44,8 +46,8 @@ const Formations = () => {
     const fetchFormations = async () => {
       setLoadingFormations(true);
       try {
-        const response = await fetch("http://localhost:8000/api/formations");
-        const data = await response.json();
+        const response = await api.get("/formations");
+        const data = response.data;
         if (Array.isArray(data)) {
           setFormations(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -75,14 +77,9 @@ const Formations = () => {
       return;
     setDeleteLoading(id_formation);
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/formations/${id_formation}`,
-        {
-          method: "DELETE",
-        }
-      );
-      const data = await response.json();
-      if (!response.ok || data.status !== "success") {
+      const response = await api.delete(`/formations/${id_formation}`);
+      const data = response.data;
+      if (data.status !== "success") {
         throw new Error(
           data.message || "Erreur lors de la suppression de la formation"
         );
@@ -91,8 +88,8 @@ const Formations = () => {
         prev.filter((formation) => formation.id_formation !== id_formation)
       );
       toast({
-        title: "Suppression réussie",
-        description: "La formation a bien été supprimée.",
+        title: "Suppression rÃ©ussie",
+        description: "La formation a bien Ã©tÃ© supprimÃ©e.",
         variant: "default",
         className: "bg-red-50 border-red-200 text-red-800",
         duration: 4000,
@@ -114,49 +111,39 @@ const Formations = () => {
     setEditDialogOpen(true);
   };
 
-  // Update handler: send PUT request to API
-  const handleUpdate = async (values) => {
-    if (!editFormation) return;
-    try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/formations/${editFormation.id_formation}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        }
-      );
-      const data = await response.json();
-      if (!response.ok || data.status !== "success") {
-        throw new Error(
-          data.message || "Erreur lors de la modification de la formation"
-        );
-      }
-      setFormations((prev) =>
-        prev.map((formation) =>
-          formation.id_formation === editFormation.id_formation
-            ? { ...formation, ...values }
-            : formation
-        )
-      );
-      toast({
-        title: "Modification réussie",
-        description: "La formation a bien été modifiée.",
-        variant: "default",
-        className: "bg-blue-50 border-blue-200 text-blue-800",
-        duration: 4000,
-      });
+  // Update handler: sync local state after successful API update from the form
+  const handleUpdate = (updatedFormation) => {
+    if (!updatedFormation) return;
+
+    const updatedId =
+      updatedFormation.id_formation ??
+      updatedFormation.id ??
+      editFormation?.id_formation ??
+      editFormation?.id;
+
+    if (!updatedId) {
       setEditDialogOpen(false);
       setEditFormation(null);
-    } catch (error) {
-      toast({
-        title: "Erreur",
-        description: error.message || "Erreur lors de la modification",
-        variant: "destructive",
-      });
+      return;
     }
-  };
 
+    setFormations((prev) =>
+      prev.map((formation) =>
+        formation.id_formation === updatedId || formation.id === updatedId
+          ? { ...formation, ...updatedFormation, id_formation: updatedId }
+          : formation
+      )
+    );
+    toast({
+      title: "Modification reussie",
+      description: "La formation a bien ete modifiee.",
+      variant: "default",
+      className: "bg-blue-50 border-blue-200 text-blue-800",
+      duration: 4000,
+    });
+    setEditDialogOpen(false);
+    setEditFormation(null);
+  };
   return (
     <div className="min-h-screen flex">
       <Sidebar />
@@ -247,7 +234,7 @@ const Formations = () => {
                   {paginatedFormations.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={2} className="text-center">
-                        Aucune formation trouvée.
+                        Aucune formation trouvÃ©e.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -293,7 +280,7 @@ const Formations = () => {
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
                   >
-                    Précédent
+                    PrÃ©cÃ©dent
                   </Button>
                   <span>
                     Page {currentPage} sur {totalPages}
@@ -319,3 +306,7 @@ const Formations = () => {
 };
 
 export default Formations;
+
+
+
+

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Header from "@/components/Layout/Header";
 import Sidebar from "@/components/Layout/Sidebar";
 import { ExamSection } from "@/components/Dashboard/UpcomingExams";
+import api from "@/services/api";
 
 interface ApiExam {
   id: number;
@@ -32,17 +33,11 @@ const UpcomingExams = () => {
     const fetchExams = async () => {
       try {
         console.log("Fetching upcoming exams from API...");
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/exams/upcoming"
-        );
-        
+        const response = await api.get("/exams/upcoming");
+
         console.log("Response status:", response.status);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
+
+        const data = response.data;
         console.log("API Response:", data);
 
         if (data.status === "success" && Array.isArray(data.data)) {

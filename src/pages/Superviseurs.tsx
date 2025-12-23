@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import SuperviseursForm from "@/components/Superviseurs/SuperviseursForm";
 import { useToast } from "@/hooks/use-toast";
+import api from "@/services/api";
 
 const Superviseurs = () => {
   const navigate = useNavigate();
@@ -51,8 +52,8 @@ const Superviseurs = () => {
     const fetchSuperviseurs = async () => {
       setLoadingSuperviseurs(true);
       try {
-        const response = await fetch("http://localhost:8000/api/superviseurs");
-        const data = await response.json();
+        const response = await api.get("/superviseurs");
+        const data = response.data;
         if (Array.isArray(data)) {
           setSuperviseurs(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -82,15 +83,7 @@ const Superviseurs = () => {
       return;
     setDeleteLoading(id);
     try {
-      const response = await fetch(
-        `http://localhost:8000/api/superviseurs/${id}`,
-        {
-          method: "DELETE",
-        }
-      );
-      if (!response.ok) {
-        throw new Error("Erreur lors de la suppression du superviseur");
-      }
+      await api.delete(`/superviseurs/${id}`);
       setSuperviseurs((prev) => prev.filter((sup) => sup.id !== id));
       toast({
         title: "Suppression réussie",
@@ -120,20 +113,7 @@ const Superviseurs = () => {
   const handleUpdate = async (values) => {
     if (!editSuperviseur) return;
     try {
-      const response = await fetch(
-        `http://localhost:8000/api/superviseurs/${editSuperviseur.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        }
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Erreur lors de la modification du superviseur"
-        );
-      }
+      await api.put(`/superviseurs/${editSuperviseur.id}`, values);
       setSuperviseurs((prev) =>
         prev.map((sup) =>
           sup.id === editSuperviseur.id ? { ...sup, ...values } : sup

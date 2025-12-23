@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { z } from "zod";
+import api from "@/services/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -28,31 +29,30 @@ const FormationsForm = ({ onSubmit, onCancel, initialValues }) => {
     },
   });
 
+  // Keep form in sync when editing different formations
+  useEffect(() => {
+    if (initialValues) {
+      form.reset(initialValues);
+    }
+  }, [initialValues, form]);
+
   const handleFormSubmit = async (values) => {
     try {
       let response;
-      if (initialValues && initialValues.id) {
-        // Update
-        response = await fetch(
-          `http://127.0.0.1:8000/api/formations/${initialValues.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(values),
-          }
-        );
+      const targetId =
+        initialValues?.id_formation || initialValues?.id || undefined;
+
+      if (targetId) {
+        // Update existing formation (accept both id_formation and id)
+        response = await api.put(`/formations/${targetId}`, values);
       } else {
         // Create
-        response = await fetch("http://127.0.0.1:8000/api/formations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        });
+        response = await api.post("/formations", values);
       }
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (!response.ok || data.status !== "success") {
+      if (data.status !== "success") {
         throw new Error(
           data.message ||
             (initialValues
@@ -61,7 +61,14 @@ const FormationsForm = ({ onSubmit, onCancel, initialValues }) => {
         );
       }
 
-      await onSubmit?.(data.data);
+      // Ensure we always send back a usable formation object
+      const returnedFormation =
+        data.data ||
+        (targetId
+          ? { ...initialValues, ...values, id_formation: targetId }
+          : { ...values });
+
+      await onSubmit?.(returnedFormation);
       toast({
         title: "Succès",
         description: initialValues

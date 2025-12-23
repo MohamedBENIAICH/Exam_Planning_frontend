@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Edit, Trash2, Calendar, Users, Building, Clock } from "lucide-react";
+import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -66,16 +67,7 @@ const ExamsList = () => {
 
     setLoading(true);
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/exams/${examToDelete.id}/cancel`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to cancel exam");
-      }
+      await api.post(`/exams/${examToDelete.id}/cancel`);
 
       // Remove the exam from the local state
       setExams(exams.filter((exam) => exam.id !== examToDelete.id));

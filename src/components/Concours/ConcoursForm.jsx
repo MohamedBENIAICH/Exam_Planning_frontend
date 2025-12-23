@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import ImportCSVforConcours from "./ImportCSVforConcours";
+import api from "@/services/api";
 
 const ConcoursForm = ({
   concour,
@@ -284,26 +285,16 @@ const ConcoursForm = ({
     }
 
     try {
-      const response = await fetch(
-        "http://localhost:8000/api/concours/check-salle-availability",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            date_concours: format(date, "yyyy-MM-dd"),
-            heure_debut: heureDebut,
-            heure_fin: heureFin,
-            locaux: locaux,
-            exclude_concours_id: concour?.id || null,
-          }),
-        }
-      );
+      const response = await api.post("/concours/check-salle-availability", {
+        date_concours: format(date, "yyyy-MM-dd"),
+        heure_debut: heureDebut,
+        heure_fin: heureFin,
+        locaux: locaux,
+        exclude_concours_id: concour?.id || null,
+      });
 
-      if (response.ok) {
-        const data = await response.json();
-        return data;
+      if (response.status === 200 || response.status === 201) {
+        return response.data;
       }
     } catch (error) {
       console.error("Erreur lors de la vérification de disponibilité:", error);
@@ -350,8 +341,8 @@ const ConcoursForm = ({
     const loadDepartments = async () => {
       try {
         setLoadingDepartments(true);
-        const response = await fetch("http://localhost:8000/api/departements");
-        const data = await response.json();
+        const response = await api.get("/departements");
+        const data = response.data;
         if (data.status === "success") {
           const uniqueDepartments = [
             ...new Set(data.data.map((dept) => dept.nom_departement)),
@@ -378,10 +369,8 @@ const ConcoursForm = ({
         setLoadingAmphitheaters(true);
 
         // Always fetch all amphitheaters first
-        const response = await fetch(
-          "http://localhost:8000/api/classrooms/amphitheaters"
-        );
-        const data = await response.json();
+        const response = await api.get("/classrooms/amphitheaters");
+        const data = response.data;
 
         if (data.status !== "success") {
           throw new Error("Failed to fetch amphitheaters");
@@ -403,16 +392,16 @@ const ConcoursForm = ({
             const endTime = form.getValues("heure_fin").split(':').slice(0, 2).join(':');
 
             // Fetch scheduled amphitheaters with proper error handling
-            const scheduledResponse = await fetch(
-              `http://localhost:8000/api/classrooms/availability?date=${formattedDate}&start_time=${startTime}&end_time=${endTime}&type=amphi`
+            const scheduledResponse = await api.get(
+              `/classrooms/availability?date=${formattedDate}&start_time=${startTime}&end_time=${endTime}&type=amphi`
             );
-            
-            if (scheduledResponse.ok) {
-              const scheduledData = await scheduledResponse.json();
-              
+
+            if (scheduledResponse.status === 200) {
+              const scheduledData = scheduledResponse.data;
+
               if (scheduledData.status === "success") {
                 const scheduledAmphiIds = scheduledData.data.scheduled_classrooms?.map((c) => c.id) || [];
-                
+
                 // Mark amphitheaters as unavailable if they are scheduled
                 const amphitheatersWithAvailability = data.data.map((amphi) => ({
                   ...amphi,
@@ -479,20 +468,20 @@ const ConcoursForm = ({
         const endTime = form.getValues("heure_fin");
 
         // Get all classrooms for the department
-        const allClassroomsResponse = await fetch(
-          `http://localhost:8000/api/classrooms/by-departement?departement=${selectedClassroomDepartment}`
+        const allClassroomsResponse = await api.get(
+          `/classrooms/by-departement?departement=${selectedClassroomDepartment}`
         );
-        const allClassroomsData = await allClassroomsResponse.json();
+        const allClassroomsData = allClassroomsResponse.data;
 
         if (allClassroomsData.status !== "success") {
           throw new Error("Failed to fetch classrooms");
         }
 
         // Get scheduled classrooms for the time slot
-        const scheduledResponse = await fetch(
-          `http://localhost:8000/api/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
+        const scheduledResponse = await api.get(
+          `/classrooms/by-datetime?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}&departement=${selectedClassroomDepartment}`
         );
-        const scheduledData = await scheduledResponse.json();
+        const scheduledData = scheduledResponse.data;
 
         if (scheduledData.status === "success") {
           const scheduledClassroomIds = scheduledData.data.scheduled_classrooms?.map((c) => c.id) || [];
@@ -537,20 +526,18 @@ const ConcoursForm = ({
     const fetchSupervisors = async () => {
       try {
         setLoadingSupervisors(true);
-        const superviseursResponse = await fetch(
-          `http://localhost:8000/api/superviseurs`
-        );
-        const superviseursData = await superviseursResponse.json();
+        const superviseursResponse = await api.get("/superviseurs");
+        const superviseursData = superviseursResponse.data;
         setSupervisorsByDepartment(
           Array.isArray(superviseursData) ? superviseursData : []
         );
 
         if (selectedDepartment) {
           setLoadingProfessors(true);
-          const professeursResponse = await fetch(
-            `http://localhost:8000/api/professeurs/by-departement?departement=${selectedDepartment}`
+          const professeursResponse = await api.get(
+            `/professeurs/by-departement?departement=${selectedDepartment}`
           );
-          const professeursData = await professeursResponse.json();
+          const professeursData = professeursResponse.data;
           setProfessorsByDepartment(
             Array.isArray(professeursData) ? professeursData : []
           );

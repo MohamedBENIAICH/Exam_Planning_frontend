@@ -21,6 +21,7 @@ import {
 import ModulesForm from "@/components/Modules/ModulesForm";
 import ModulesUpdateForm from "@/components/Modules/ModulesUpdateForm";
 import { useToast } from "@/hooks/use-toast";
+import api from "@/services/api";
 
 const Modules = () => {
   const { toast } = useToast();
@@ -51,10 +52,10 @@ const Modules = () => {
     const fetchModules = async () => {
       setLoadingModules(true);
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/modules/modules-with-filieres-formation"
+        const response = await api.get(
+          "/modules/modules-with-filieres-formation"
         );
-        const data = await response.json();
+        const data = response.data;
         if (Array.isArray(data)) {
           setModules(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -83,18 +84,8 @@ const Modules = () => {
     if (!window.confirm("Voulez-vous vraiment supprimer ce module ?")) return;
     setDeleteLoading(id_module);
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/modules/${id_module}`,
-        {
-          method: "DELETE",
-        }
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Erreur lors de la suppression du module"
-        );
-      }
+      const response = await api.delete(`/modules/${id_module}`);
+      const data = response.data;
       setModules((prev) =>
         prev.filter((module) => module.id_module !== id_module)
       );
@@ -126,20 +117,7 @@ const Modules = () => {
   const handleUpdate = async (values) => {
     if (!editModule) return;
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/modules/${editModule.id_module}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        }
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Erreur lors de la modification du module"
-        );
-      }
+      await api.put(`/modules/${editModule.id_module}`, values);
       setModules((prev) =>
         prev.map((module) =>
           module.id_module === editModule.id_module

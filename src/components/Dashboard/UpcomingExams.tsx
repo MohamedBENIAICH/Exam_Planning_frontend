@@ -920,10 +920,8 @@ const UpcomingExams = () => {
   useEffect(() => {
     const fetchExams = async () => {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/exams/with-names"
-        );
-        const data = await response.json();
+        const response = await api.get("/exams/with-names");
+        const data = response.data;
 
         if (data.status === "success") {
           setExams(data.data);

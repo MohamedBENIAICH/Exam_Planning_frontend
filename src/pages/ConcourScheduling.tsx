@@ -38,6 +38,7 @@ import {
 import ConcoursForm from "@/components/Concours/ConcoursForm";
 import { useToast } from "@/components/ui/use-toast";
 import { ConcoursSection } from "@/components/Dashboard/UpcomingConcours";
+import api from "@/services/api";
 
 const ConcourScheduling = () => {
   const [concours, setConcours] = useState([]);
@@ -70,32 +71,32 @@ const ConcourScheduling = () => {
       try {
         // Charger les locaux
         setLoadingData(prev => ({ ...prev, locaux: true }));
-        const locauxResponse = await fetch("http://127.0.0.1:8000/api/classrooms");
-        const locauxData = await locauxResponse.json();
+        const locauxResponse = await api.get("/classrooms");
+        const locauxData = locauxResponse.data;
         if (locauxData.status === "success") {
           setAvailableLocaux(locauxData.data);
         }
 
         // Charger les professeurs
         setLoadingData(prev => ({ ...prev, professeurs: true }));
-        const professeursResponse = await fetch("http://127.0.0.1:8000/api/professeurs");
-        const professeursData = await professeursResponse.json();
+        const professeursResponse = await api.get("/professeurs");
+        const professeursData = professeursResponse.data;
         if (professeursData.status === "success") {
           setAvailableProfesseurs(professeursData.data);
         }
 
         // Charger les superviseurs
         setLoadingData(prev => ({ ...prev, superviseurs: true }));
-        const superviseursResponse = await fetch("http://127.0.0.1:8000/api/superviseurs");
-        const superviseursData = await superviseursResponse.json();
+        const superviseursResponse = await api.get("/superviseurs");
+        const superviseursData = superviseursResponse.data;
         if (superviseursData.status === "success") {
           setAvailableSuperviseurs(superviseursData.data);
         }
 
         // Charger les candidats
         setLoadingData(prev => ({ ...prev, candidats: true }));
-        const candidatsResponse = await fetch("http://127.0.0.1:8000/api/candidats");
-        const candidatsData = await candidatsResponse.json();
+        const candidatsResponse = await api.get("/candidats");
+        const candidatsData = candidatsResponse.data;
         if (candidatsData.status === "success") {
           setAvailableCandidats(candidatsData.data);
         }
@@ -123,10 +124,8 @@ const ConcourScheduling = () => {
   // Fetch concours as a named function so it can be reused
   const fetchConcours = async () => {
     try {
-      const response = await fetch(
-        "http://127.0.0.1:8000/api/concours/latest"
-      );
-      const data = await response.json();
+      const response = await api.get("/concours/latest");
+      const data = response.data;
       if (Array.isArray(data)) {
         setConcours(data.slice(0, 5));
       } else {
@@ -164,16 +163,11 @@ const ConcourScheduling = () => {
       setLoading(true);
       if (editingConcour) {
         // Update concours
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/concours/${editingConcour.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(submissionData),
-          }
+        const response = await api.put(
+          `/concours/${editingConcour.id}`,
+          submissionData
         );
         console.log("Update response status:", response.status);
-        if (!response.ok) throw new Error("Erreur lors de la modification");
         toast({
           title: "Succès",
           description: "Le concours a été modifié avec succès. Les convocations mises à jour avec QR codes ont été envoyées automatiquement aux candidats.",
@@ -184,14 +178,8 @@ const ConcourScheduling = () => {
       } else {
         // Create concours
         console.log("Creating new concours with payload:", JSON.stringify(submissionData, null, 2));
-        const response = await fetch("http://127.0.0.1:8000/api/concours", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(submissionData),
-        });
+        const response = await api.post("/concours", submissionData);
         console.log("Create response status:", response.status);
-        if (!response.ok) throw new Error("Erreur lors de l'ajout");
-        const data = await response.json();
         toast({
           title: "Succès",
           description: "Le concours a été ajouté avec succès.",
@@ -220,13 +208,7 @@ const ConcourScheduling = () => {
 
   const handleDeleteConcour = async (concourId) => {
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/concours/${concourId}`,
-        {
-          method: "DELETE",
-        }
-      );
-      if (!response.ok) throw new Error("La suppression du concours a échoué");
+      await api.delete(`/concours/${concourId}`);
 
       toast({
         title: "Succès",
@@ -252,20 +234,12 @@ const ConcourScheduling = () => {
   const handleSendConvocations = async (concourId) => {
     try {
       setSendingConvocations(prev => ({ ...prev, [concourId]: true }));
-      
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/concours/${concourId}/send-convocations`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-        }
+
+      const response = await api.post(
+        `/concours/${concourId}/send-convocations`
       );
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur lors de l'envoi des convocations");
-      }
+      const data = response.data;
 
       toast({
         title: "Convocations envoyées",
@@ -309,18 +283,14 @@ const ConcourScheduling = () => {
   // Function to handle report download
   const handleDownloadReport = async (concourId) => {
     try {
-      const response = await fetch(`http://127.0.0.1:8000/api/concours/${concourId}/download-report`, {
-        method: "GET",
+      const response = await api.get(`/concours/${concourId}/download-report`, {
+        responseType: "blob",
         headers: {
           "Content-Type": "application/pdf",
         },
       });
 
-      if (!response.ok) {
-        throw new Error("Erreur lors de la récupération du compte rendu");
-      }
-
-      const blob = await response.blob();
+      const blob = new Blob([response.data]);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

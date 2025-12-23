@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Header from "@/components/Layout/Header";
 import Sidebar from "@/components/Layout/Sidebar";
 import { ConcoursSection } from "@/components/Dashboard/UpcomingConcours";
+import api from "@/services/api";
 
 interface Candidat {
   id: number;
@@ -66,9 +67,8 @@ const UpcomingConcours = () => {
   useEffect(() => {
     const fetchConcours = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/concours/upcoming");
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
+        const response = await api.get("/concours/upcoming");
+        const data = response.data;
         let concoursList = [];
         if (Array.isArray(data)) {
           concoursList = data;

@@ -46,6 +46,7 @@ import {
 import { Exam } from "@/types";
 import { fr } from "@/translations/fr";
 import { downloadExamPdf } from "@/services/examService";
+import api from "@/services/api";
 
 type Assignment = {
   classroom_id: number;
@@ -183,8 +184,8 @@ const ExamScheduling = () => {
   useEffect(() => {
     const fetchExams = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/exams/latest");
-        const data: ApiResponse = await response.json();
+        const response = await api.get("/exams/latest");
+        const data: ApiResponse = response.data;
 
         if (data.status === "success") {
           const formattedExams = data.data.slice(0, 5).map((apiExam) => {
@@ -407,40 +408,18 @@ const ExamScheduling = () => {
       let response;
       if (isEditing) {
         // Update existing exam
-        response = await fetch(
-          `http://127.0.0.1:8000/api/exams/${exam.id}`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(examData),
-          }
-        );
+        response = await api.put(`/exams/${exam.id}`, examData);
       } else {
         // Create new exam
-        response = await fetch("http://127.0.0.1:8000/api/exams", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(examData),
-        });
+        response = await api.post("/exams", examData);
       }
 
-        if (!response.ok) {
-          const errorData = await response.json();
-        throw new Error(
-          errorData.message || `Failed to ${isEditing ? "update" : "create"} exam`
-        );
-      }
-
-      const result = await response.json();
+      const result = response.data;
 
       if (result.status === "success") {
         // Refresh the exams list
-        const examsResponse = await fetch("http://127.0.0.1:8000/api/exams/latest");
-        const examsData: ApiResponse = await examsResponse.json();
+        const examsResponse = await api.get("/exams/latest");
+        const examsData: ApiResponse = examsResponse.data;
 
         if (examsData.status === "success") {
           const formattedExams = examsData.data.slice(0, 5).map((apiExam) => {
@@ -534,8 +513,8 @@ const ExamScheduling = () => {
       });
 
       // Refresh the exams list to remove the deleted exam
-      const examsResponse = await fetch("http://127.0.0.1:8000/api/exams/latest");
-      const examsData: ApiResponse = await examsResponse.json();
+      const examsResponse = await api.get("/exams/latest");
+      const examsData: ApiResponse = examsResponse.data;
 
       if (examsData.status === "success") {
         const formattedExams = examsData.data.slice(0, 5).map((apiExam) => {
@@ -617,10 +596,8 @@ const ExamScheduling = () => {
         return "";
       }
 
-      const response = await fetch(
-        `http://localhost:8000/api/classrooms/name/${classroomId}`
-      );
-      const data = await response.json();
+      const response = await api.get(`/classrooms/name/${classroomId}`);
+      const data = response.data;
 
       if (data.status === "success" && data.data) {
         setClassroomNames((prev) => {
@@ -714,10 +691,8 @@ const ExamScheduling = () => {
       }
 
       try {
-        const response = await fetch(
-          `http://localhost:8000/api/modules/${cleanModuleId}/name`
-        );
-        const data = await response.json();
+        const response = await api.get(`/modules/${cleanModuleId}/name`);
+        const data = response.data;
 
         if (data.status === "success" && data.data) {
           const moduleName = data.data.module_name;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { z } from "zod";
-import { API_BASE_URL } from "@/services/api";
+import api from "@/services/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -51,8 +51,8 @@ const ModulesForm = ({ onSubmit, onCancel, initialValues }) => {
     const fetchFormations = async () => {
       setLoadingFormations(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/formations/`);
-        const data = await response.json();
+        const response = await api.get("/formations/");
+        const data = response.data;
         if (Array.isArray(data)) {
           setFormations(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -77,9 +77,9 @@ const ModulesForm = ({ onSubmit, onCancel, initialValues }) => {
       return;
     }
     setLoadingFilieres(true);
-    fetch(`${API_BASE_URL}/formations/${id_formation}/filieres`)
-      .then((res) => res.json())
-      .then((data) => {
+    api.get(`/formations/${id_formation}/filieres`)
+      .then((response) => {
+        const data = response.data;
         if (Array.isArray(data)) {
           setFilieres(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -101,17 +101,8 @@ const ModulesForm = ({ onSubmit, onCancel, initialValues }) => {
       };
       console.log("Données envoyées au backend :", payload); // <-- Ajout du log
 
-      const response = await fetch(`${API_BASE_URL}/modules`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Erreur lors de la création du module");
-      }
+      const response = await api.post("/modules", payload);
+      const data = response.data;
 
       await onSubmit?.(data);
       toast({

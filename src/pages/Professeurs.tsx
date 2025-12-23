@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import ProfesseursForm from "@/components/Professeurs/ProfesseursForm";
 import { useToast } from "@/hooks/use-toast"; // Ajoutez ceci si vous avez un hook toast
+import api from "@/services/api";
 
 const Professeurs = () => {
   const navigate = useNavigate();
@@ -51,8 +52,8 @@ const Professeurs = () => {
     const fetchProfesseurs = async () => {
       setLoadingProfesseurs(true);
       try {
-        const response = await fetch("http://localhost:8000/api/professeurs");
-        const data = await response.json();
+        const response = await api.get("/professeurs");
+        const data = response.data;
         if (Array.isArray(data)) {
           setProfesseurs(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -82,15 +83,7 @@ const Professeurs = () => {
       return;
     setDeleteLoading(id);
     try {
-      const response = await fetch(
-        `http://localhost:8000/api/professeurs/${id}`,
-        {
-          method: "DELETE",
-        }
-      );
-      if (!response.ok) {
-        throw new Error("Erreur lors de la suppression du professeur");
-      }
+      await api.delete(`/professeurs/${id}`);
       setProfesseurs((prev) => prev.filter((prof) => prof.id !== id));
       toast({
         title: "Suppression réussie",
@@ -120,20 +113,7 @@ const Professeurs = () => {
   const handleUpdate = async (values) => {
     if (!editProfesseur) return;
     try {
-      const response = await fetch(
-        `http://localhost:8000/api/professeurs/${editProfesseur.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        }
-      );
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message || "Erreur lors de la modification du professeur"
-        );
-      }
+      await api.put(`/professeurs/${editProfesseur.id}`, values);
       // Update local state
       setProfesseurs((prev) =>
         prev.map((prof) =>

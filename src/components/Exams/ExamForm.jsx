@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,7 +41,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { createExam, updateExam } from "../../services/examService";
 import ImportCSV from "../Students/ImportCSV";
 import { getAvailableClassrooms } from "@/services/classroomService";
-import { API_BASE_URL } from "@/services/api";
+import api, { API_BASE_URL } from "@/services/api";
 import {
   getSupervisorsByDepartment,
   getDepartments,
@@ -54,13 +54,13 @@ import {
 
 const formSchema = z.object({
   formation: z.string().min(1, "La formation est requise"),
-  filiere: z.string().min(1, "La filière est requise"),
+  filiere: z.string().min(1, "La filiÃ¨re est requise"),
   semester: z.string().min(1, "Le semestre est requis"),
   module: z.string().min(1, "Le module est requis"),
   date: z.date({
     required_error: "La date d'examen est requise",
   }),
-  startTime: z.string().min(1, "L'heure de début est requise"),
+  startTime: z.string().min(1, "L'heure de dÃ©but est requise"),
   endTime: z.string().min(1, "L'heure de fin est requise"),
   classrooms: z
     .array(z.union([z.string(), z.number()]))
@@ -273,39 +273,43 @@ const ExamForm = ({
   // Initialize selected department for professors when editing an exam
   useEffect(() => {
     const initializeProfessorsForEdit = async () => {
-      if (exam?.professeurs && Array.isArray(exam.professeurs) && exam.professeurs.length > 0) {
-        try {
-          // Fetch all professors to find the department
-          const response = await fetch(`${API_BASE_URL}/professeurs`);
-          if (response.ok) {
-            const allProfessors = await response.json();
+      if (
+        !exam?.professeurs ||
+        !Array.isArray(exam.professeurs) ||
+        exam.professeurs.length === 0
+      ) {
+        return;
+      }
 
-            // Find the first professor from the exam in the list
-            const examProfessor = allProfessors.find(
-              (prof) => prof.id === exam.professeurs[0]
-            );
+      try {
+        // Fetch all professors to find the department
+        const response = await api.get("/professeurs");
+        const allProfessors = response.data;
 
-            if (examProfessor?.departement) {
-              // Set the department which will trigger loading professors from that department
-              setSelectedDepartment(examProfessor.departement);
-            } else {
-              // If no department found, just load all professors of that department
-              // by fetching professors by department for each possible department
-              // For now, set professors directly
-              const examProfessors = allProfessors.filter((prof) =>
-                exam.professeurs.includes(prof.id)
-              );
-              if (examProfessors.length > 0) {
-                setProfessorsByDepartment(examProfessors);
-                if (examProfessors[0].departement) {
-                  setSelectedDepartment(examProfessors[0].departement);
-                }
-              }
+        // Find the first professor from the exam in the list
+        const examProfessor = allProfessors.find(
+          (prof) => prof.id === exam.professeurs[0]
+        );
+
+        if (examProfessor?.departement) {
+          // Set the department which will trigger loading professors from that department
+          setSelectedDepartment(examProfessor.departement);
+        } else {
+          // If no department found, just load all professors of that department
+          // by fetching professors by department for each possible department
+          // For now, set professors directly
+          const examProfessors = allProfessors.filter((prof) =>
+            exam.professeurs.includes(prof.id)
+          );
+          if (examProfessors.length > 0) {
+            setProfessorsByDepartment(examProfessors);
+            if (examProfessors[0].departement) {
+              setSelectedDepartment(examProfessors[0].departement);
             }
           }
-        } catch (error) {
-          console.error("Error fetching professors for edit:", error);
         }
+      } catch (error) {
+        console.error("Error fetching professors for edit:", error);
       }
     };
 
@@ -431,7 +435,7 @@ const ExamForm = ({
         } else {
           toast({
             title: "Erreur",
-            description: "Impossible de charger les départements",
+            description: "Impossible de charger les dÃ©partements",
             variant: "destructive",
           });
         }
@@ -439,7 +443,7 @@ const ExamForm = ({
         console.error("Error loading departments:", error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les départements",
+          description: "Impossible de charger les dÃ©partements",
           variant: "destructive",
         });
       } finally {
@@ -510,7 +514,7 @@ const ExamForm = ({
         console.error("Error loading filieres:", error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les filières",
+          description: "Impossible de charger les filiÃ¨res",
           variant: "destructive",
         });
       } finally {
@@ -593,7 +597,7 @@ const ExamForm = ({
         } else {
           toast({
             title: "Erreur",
-            description: "Impossible de charger les amphithéâtres",
+            description: "Impossible de charger les amphithÃ©Ã¢tres",
             variant: "destructive",
           });
         }
@@ -601,7 +605,7 @@ const ExamForm = ({
         console.error("Error loading amphitheaters:", error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les amphithéâtres",
+          description: "Impossible de charger les amphithÃ©Ã¢tres",
           variant: "destructive",
         });
       } finally {
@@ -689,7 +693,7 @@ const ExamForm = ({
   ]);
 
   const onFormSubmit = async (values) => {
-    console.log("🚀 Form submission started with values:", values);
+    console.log("ðŸš€ Form submission started with values:", values);
     try {
       setLoading(true);
 
@@ -805,8 +809,8 @@ const ExamForm = ({
       if (exam?.id) {
         result = await updateExam(exam.id, examData);
         toast({
-          title: "Examen mis à jour",
-          description: `L'examen de ${values.module} a été mis à jour avec succès`,
+          title: "Examen mis Ã  jour",
+          description: `L'examen de ${values.module} a Ã©tÃ© mis Ã  jour avec succÃ¨s`,
         });
 
         // Close the dialog immediately after exam update
@@ -816,8 +820,8 @@ const ExamForm = ({
       } else {
         result = await createExam(examData);
         toast({
-          title: "Examen créé",
-          description: `L'examen de ${values.module} a été créé avec succès`,
+          title: "Examen crÃ©Ã©",
+          description: `L'examen de ${values.module} a Ã©tÃ© crÃ©Ã© avec succÃ¨s`,
         });
         setExamId(result?.id || result?.data?.id);
 
@@ -840,33 +844,27 @@ const ExamForm = ({
               String(s.studentId || s.numero_etudiant || s.id)
             ),
           });
-          const assignmentResponse = await fetch(
-            `http://localhost:8000/api/exams/${examId}/assignments`,
+          const assignmentResponse = await api.post(
+            `/exams/${examId}/assignments`,
             {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                classroom_ids: values.classrooms.map(Number), // keep as numbers
-                student_numeros: studentsToSubmit.map((s) =>
-                  String(s.studentId || s.numero_etudiant || s.id)
-                ),
-              }),
+              classroom_ids: values.classrooms.map(Number), // keep as numbers
+              student_numeros: studentsToSubmit.map((s) =>
+                String(s.studentId || s.numero_etudiant || s.id)
+              ),
             }
           );
-          const assignmentData = await assignmentResponse.json();
+          const assignmentData = assignmentResponse.data;
           console.log("Assignment API response:", assignmentData);
-          if (assignmentResponse.ok) {
+          if (assignmentResponse.status === 200 || assignmentResponse.status === 201) {
             toast({
-              title: "Affectation réussie",
+              title: "Affectation rÃ©ussie",
               description:
-                "Les étudiants ont été assignés à leurs salles et places.",
+                "Les Ã©tudiants ont Ã©tÃ© assignÃ©s Ã  leurs salles et places.",
             });
           } else {
             throw new Error(
               assignmentData.message ||
-              "Erreur lors de l'affectation des étudiants."
+              "Erreur lors de l'affectation des Ã©tudiants."
             );
           }
         }
@@ -901,7 +899,7 @@ const ExamForm = ({
     console.error("Form validation errors:", errors);
     toast({
       title: "Erreur de validation",
-      description: "Veuillez vérifier tous les champs requis",
+      description: "Veuillez vÃ©rifier tous les champs requis",
       variant: "destructive",
     });
   };
@@ -949,8 +947,8 @@ const ExamForm = ({
     setShowImportCSV(false);
 
     toast({
-      title: "Étudiants importés",
-      description: `${importedStudents.length} étudiants ont été importés avec succès`,
+      title: "Ã‰tudiants importÃ©s",
+      description: `${importedStudents.length} Ã©tudiants ont Ã©tÃ© importÃ©s avec succÃ¨s`,
     });
   };
 
@@ -960,10 +958,8 @@ const ExamForm = ({
 
   const showExamDetail = async (examId) => {
     // ...open your detail dialog/drawer here...
-    const res = await fetch(
-      `http://localhost:8000/api/exams/${examId}/assignments`
-    );
-    const data = await res.json();
+    const res = await api.get(`/exams/${examId}/assignments`);
+    const data = res.data;
     setAssignments(data.data.assignments); // or adjust as needed
   };
 
@@ -971,7 +967,7 @@ const ExamForm = ({
     <Form {...form}>
       <form
         onSubmit={(e) => {
-          console.log("🔵 Form submit event triggered");
+          console.log("ðŸ”µ Form submit event triggered");
           form.handleSubmit(onFormSubmit, handleFormError)(e);
         }}
         className="space-y-6"
@@ -1000,7 +996,7 @@ const ExamForm = ({
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Sélectionnez une formation" />
+                            <SelectValue placeholder="SÃ©lectionnez une formation" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -1035,7 +1031,7 @@ const ExamForm = ({
                   name="filiere"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Filière</FormLabel>
+                      <FormLabel>FiliÃ¨re</FormLabel>
                       <Select
                         onValueChange={(value) => {
                           field.onChange(value);
@@ -1047,13 +1043,13 @@ const ExamForm = ({
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Sélectionnez une filière" />
+                            <SelectValue placeholder="SÃ©lectionnez une filiÃ¨re" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {loadingFilieres ? (
                             <div className="p-2 text-center text-slate-500">
-                              Chargement des filières...
+                              Chargement des filiÃ¨res...
                             </div>
                           ) : filieres.length > 0 ? (
                             filieres.map((filiere) => (
@@ -1067,8 +1063,8 @@ const ExamForm = ({
                           ) : (
                             <div className="p-2 text-center text-slate-500">
                               {form.getValues("formation")
-                                ? "Aucune filière disponible pour cette formation"
-                                : "Veuillez d'abord sélectionner une formation"}
+                                ? "Aucune filiÃ¨re disponible pour cette formation"
+                                : "Veuillez d'abord sÃ©lectionner une formation"}
                             </div>
                           )}
                         </SelectContent>
@@ -1095,7 +1091,7 @@ const ExamForm = ({
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Sélectionnez un semestre" />
+                            <SelectValue placeholder="SÃ©lectionnez un semestre" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -1132,7 +1128,7 @@ const ExamForm = ({
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Sélectionnez un module" />
+                            <SelectValue placeholder="SÃ©lectionnez un module" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -1152,11 +1148,11 @@ const ExamForm = ({
                           ) : (
                             <div className="p-2 text-center text-slate-500">
                               {!form.getValues("formation")
-                                ? "Veuillez d'abord sélectionner une formation"
+                                ? "Veuillez d'abord sÃ©lectionner une formation"
                                 : !form.getValues("filiere")
-                                  ? "Veuillez d'abord sélectionner une filière"
+                                  ? "Veuillez d'abord sÃ©lectionner une filiÃ¨re"
                                   : !form.getValues("semester")
-                                    ? "Veuillez d'abord sélectionner un semestre"
+                                    ? "Veuillez d'abord sÃ©lectionner un semestre"
                                     : "Aucun module disponible pour cette combinaison"}
                             </div>
                           )}
@@ -1219,7 +1215,7 @@ const ExamForm = ({
                   name="startTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Heure de début</FormLabel>
+                      <FormLabel>Heure de dÃ©but</FormLabel>
                       <FormControl>
                         <div className="flex items-center">
                           <Clock className="mr-2 h-4 w-4 text-slate-400" />
@@ -1260,7 +1256,7 @@ const ExamForm = ({
                   <FormItem>
                     <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
                       <Users className="h-5 w-5" />
-                      Étudiants
+                      Ã‰tudiants
                     </FormLabel>
                     <Button
                       variant="outline"
@@ -1270,8 +1266,8 @@ const ExamForm = ({
                     >
                       <Upload className="h-4 w-4" />
                       {selectedStudentsLocal.length === 0
-                        ? "Importer la liste d'étudiants (CSV)"
-                        : `${selectedStudentsLocal.length} Étudiants importés`}
+                        ? "Importer la liste d'Ã©tudiants (CSV)"
+                        : `${selectedStudentsLocal.length} Ã‰tudiants importÃ©s`}
                     </Button>
 
                     {/* Direct import dialog */}
@@ -1282,7 +1278,7 @@ const ExamForm = ({
                       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
                         <DialogHeader>
                           <DialogTitle>
-                            Importer la liste d'étudiants
+                            Importer la liste d'Ã©tudiants
                           </DialogTitle>
                         </DialogHeader>
                         <div className="flex-1 overflow-auto">
@@ -1321,7 +1317,7 @@ const ExamForm = ({
                         onClick={() => setSelectedClassroomType("amphi")}
                         className="flex-1"
                       >
-                        Amphithéâtres
+                        AmphithÃ©Ã¢tres
                       </Button>
                       <Button
                         type="button"
@@ -1341,7 +1337,7 @@ const ExamForm = ({
                       <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
                         {loadingAmphitheaters ? (
                           <div className="text-center text-slate-500 py-2">
-                            Chargement des amphithéâtres...
+                            Chargement des amphithÃ©Ã¢tres...
                           </div>
                         ) : amphitheaters.length > 0 ? (
                           amphitheaters.map((amphi) => (
@@ -1372,7 +1368,7 @@ const ExamForm = ({
                                   htmlFor={`amphi-${amphi.id}`}
                                   className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                 >
-                                  {amphi.nom_du_local} - Capacité:{" "}
+                                  {amphi.nom_du_local} - CapacitÃ©:{" "}
                                   {amphi.capacite}
                                 </label>
                               </div>
@@ -1383,7 +1379,7 @@ const ExamForm = ({
                           ))
                         ) : (
                           <div className="text-center text-slate-500 py-2">
-                            Aucun amphithéâtre disponible
+                            Aucun amphithÃ©Ã¢tre disponible
                           </div>
                         )}
                       </div>
@@ -1394,7 +1390,7 @@ const ExamForm = ({
                         {/* Department Selection for Classrooms */}
                         <div>
                           <h4 className="text-sm font-medium text-slate-700 mb-2">
-                            Sélectionnez un département
+                            SÃ©lectionnez un dÃ©partement
                           </h4>
                           <Select
                             onValueChange={(value) =>
@@ -1403,12 +1399,12 @@ const ExamForm = ({
                             value={selectedClassroomDepartment}
                           >
                             <SelectTrigger className="w-full bg-white">
-                              <SelectValue placeholder="Sélectionnez un département" />
+                              <SelectValue placeholder="SÃ©lectionnez un dÃ©partement" />
                             </SelectTrigger>
                             <SelectContent>
                               {loadingDepartments ? (
                                 <div className="p-2 text-center text-slate-500">
-                                  Chargement des départements...
+                                  Chargement des dÃ©partements...
                                 </div>
                               ) : departments.length > 0 ? (
                                 departments.map((department) => (
@@ -1421,7 +1417,7 @@ const ExamForm = ({
                                 ))
                               ) : (
                                 <div className="p-2 text-center text-slate-500">
-                                  Aucun département disponible
+                                  Aucun dÃ©partement disponible
                                 </div>
                               )}
                             </SelectContent>
@@ -1476,7 +1472,7 @@ const ExamForm = ({
                                         htmlFor={`classroom-${classroom.id}`}
                                         className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                       >
-                                        {classroom.nom_du_local} - Capacité:{" "}
+                                        {classroom.nom_du_local} - CapacitÃ©:{" "}
                                         {classroom.capacite}
                                       </label>
                                     </div>
@@ -1487,7 +1483,7 @@ const ExamForm = ({
                                 ))
                             ) : (
                               <div className="text-center text-slate-500 py-2">
-                                Aucune salle disponible pour ce département à
+                                Aucune salle disponible pour ce dÃ©partement Ã 
                                 cette date et heure
                               </div>
                             )}
@@ -1500,7 +1496,7 @@ const ExamForm = ({
                     {field.value.length > 0 && (
                       <div className="mt-6 pt-4 border-t border-slate-200">
                         <h4 className="text-sm font-medium text-slate-700 mb-3">
-                          Locaux sélectionnés ({field.value.length})
+                          Locaux sÃ©lectionnÃ©s ({field.value.length})
                         </h4>
                         <div className="space-y-2">
                           {field.value.map((selectedId) => {
@@ -1521,7 +1517,7 @@ const ExamForm = ({
                                 <div className="flex items-center gap-2">
                                   <Building className="h-4 w-4 text-slate-500" />
                                   <span className="text-sm">
-                                    {selectedItem.nom_du_local} - Capacité:{" "}
+                                    {selectedItem.nom_du_local} - CapacitÃ©:{" "}
                                     {selectedItem.capacite}
                                   </span>
                                 </div>
@@ -1569,14 +1565,14 @@ const ExamForm = ({
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-sm font-medium text-slate-700 mb-2">
-                          Département
+                          DÃ©partement
                         </h4>
                         <Select
                           value={selectedDepartment}
                           onValueChange={setSelectedDepartment}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner un département" />
+                            <SelectValue placeholder="SÃ©lectionner un dÃ©partement" />
                           </SelectTrigger>
                           <SelectContent>
                             {departments.map((dept) => (
@@ -1736,7 +1732,7 @@ const ExamForm = ({
               form.getValues("supervisors")?.length > 0) && (
                 <div className="mt-6 pt-4 border-t border-slate-200">
                   <h4 className="text-sm font-medium text-slate-700 mb-3">
-                    Personnel sélectionné
+                    Personnel sÃ©lectionnÃ©
                   </h4>
                   <div className="space-y-2">
                     {/* Selected Professors */}
@@ -1855,7 +1851,7 @@ const ExamForm = ({
             <Button
               type="submit"
               disabled={loading}
-              onClick={() => console.log("🔴 Submit button clicked")}
+              onClick={() => console.log("Submit button clicked")}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {loading ? (
@@ -1864,7 +1860,7 @@ const ExamForm = ({
                   Chargement...
                 </div>
               ) : exam ? (
-                "Mettre à jour l'examen"
+                "Mettre Ã  jour l'examen"
               ) : (
                 "Planifier l'examen"
               )}

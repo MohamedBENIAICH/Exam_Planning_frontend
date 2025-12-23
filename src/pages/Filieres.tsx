@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import FilieresForm from "@/components/Filieres/FilieresForm.jsx";
 import FilieresUpdateForm from "@/components/Filieres/FilieresUpdateForm.jsx";
+import api from "@/services/api";
 
 const Filieres = () => {
   const { toast } = useToast();
@@ -46,10 +47,8 @@ const Filieres = () => {
     const fetchFilieres = async () => {
       setLoadingFilieres(true);
       try {
-        const response = await fetch(
-          "http://localhost:8000/api/filieres/filieres-with-details"
-        );
-        const data = await response.json();
+        const response = await api.get("/filieres/filieres-with-details");
+        const data = response.data;
 
         if (Array.isArray(data)) {
           setFilieres(data);
@@ -79,17 +78,8 @@ const Filieres = () => {
       return;
     setDeleteLoading(filiere_id);
     try {
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/filieres/${filiere_id}`,
-        { method: "DELETE" }
-      );
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Erreur lors de la suppression de la filière"
-        );
-      }
+      const response = await api.delete(`/filieres/${filiere_id}`);
+      const data = response.data;
 
       setFilieres((prev) => prev.filter((f) => f.filiere_id !== filiere_id));
       toast({

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { z } from "zod";
+import api from "@/services/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -47,8 +48,8 @@ const FilieresUpdateForm = ({ onSubmit, onCancel, initialValues }) => {
     const fetchFormations = async () => {
       setLoadingFormations(true);
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/formations");
-        const data = await response.json();
+        const response = await api.get("/formations");
+        const data = response.data;
         if (Array.isArray(data)) {
           setFormations(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -63,8 +64,8 @@ const FilieresUpdateForm = ({ onSubmit, onCancel, initialValues }) => {
     const fetchDepartements = async () => {
       setLoadingDepartements(true);
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/departements");
-        const data = await response.json();
+        const response = await api.get("/departements");
+        const data = response.data;
         if (Array.isArray(data)) {
           setDepartements(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -97,26 +98,14 @@ const FilieresUpdateForm = ({ onSubmit, onCancel, initialValues }) => {
         });
         return;
       }
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/filieres/${initialValues.filiere_id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...values,
-            id_formation: Number(values.id_formation),
-            id_departement: Number(values.id_departement),
-          }),
-        }
-      );
+      const payload = {
+        ...values,
+        id_formation: Number(values.id_formation),
+        id_departement: Number(values.id_departement),
+      };
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Erreur lors de la modification de la filière"
-        );
-      }
+      const response = await api.put(`/filieres/${initialValues.filiere_id}`, payload);
+      const data = response.data;
 
       await onSubmit?.(data);
       toast({

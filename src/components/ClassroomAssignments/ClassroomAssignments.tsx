@@ -3,6 +3,7 @@ import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
+import api from "@/services/api";
 
 interface Candidat {
   candidat_id: number;
@@ -76,15 +77,11 @@ const ClassroomAssignments: React.FC<ClassroomAssignmentsProps> = ({ concoursId,
         setError(null);
         
         console.log('Fetching assignments for concoursId:', concoursId);
-        const response = await fetch(
-          `http://localhost:8000/api/concours/${concoursId}/classroom-assignments`
+        const response = await api.get(
+          `/concours/${concoursId}/classroom-assignments`
         );
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
+        const data = response.data;
         console.log('API Response:', data);
         
         if (data?.status === "success" && data?.data?.assignments) {

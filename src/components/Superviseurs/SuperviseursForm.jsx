@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import api from "@/services/api";
 
 const formSchema = z.object({
   email: z.string().email("Email invalide"),
@@ -49,10 +50,8 @@ const SuperviseursForm = ({ onSubmit, onCancel, initialValues }) => {
     const loadServices = async () => {
       setLoadingServices(true);
       try {
-        const response = await fetch(
-          "http://localhost:8000/api/superviseurs/service"
-        );
-        const data = await response.json();
+        const response = await api.get("/superviseurs/service");
+        const data = response.data;
         if (data.status === "success") {
           setServices(data.data);
         } else {
@@ -77,34 +76,12 @@ const SuperviseursForm = ({ onSubmit, onCancel, initialValues }) => {
 
   const handleFormSubmit = async (values) => {
     try {
-      let response;
       if (initialValues && initialValues.id) {
         // Mode édition : PUT
-        response = await fetch(
-          `http://localhost:8000/api/superviseurs/${initialValues.id}`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(values),
-          }
-        );
+        await api.put(`/superviseurs/${initialValues.id}`, values);
       } else {
         // Mode création : POST
-        response = await fetch("http://localhost:8000/api/superviseurs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(values),
-        });
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          errorData.message ||
-            (initialValues
-              ? "Erreur lors de la modification du superviseur"
-              : "Erreur lors de la création du superviseur")
-        );
+        await api.post("/superviseurs", values);
       }
 
       await onSubmit?.(values);

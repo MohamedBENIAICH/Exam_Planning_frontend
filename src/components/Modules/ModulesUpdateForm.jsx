@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { z } from "zod";
+import api from "@/services/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -57,8 +58,8 @@ const ModulesUpdateForm = ({ onSubmit, onCancel, initialValues }) => {
     const fetchFormations = async () => {
       setLoadingFormations(true);
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/formations/");
-        const data = await response.json();
+        const response = await api.get("/formations/");
+        const data = response.data;
         if (Array.isArray(data)) {
           setFormations(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -83,9 +84,9 @@ const ModulesUpdateForm = ({ onSubmit, onCancel, initialValues }) => {
       return;
     }
     setLoadingFilieres(true);
-    fetch(`http://127.0.0.1:8000/api/formations/${id_formation}/filieres`)
-      .then((res) => res.json())
-      .then((data) => {
+    api.get(`/formations/${id_formation}/filieres`)
+      .then((response) => {
+        const data = response.data;
         if (Array.isArray(data)) {
           setFilieres(data);
         } else if (data.data && Array.isArray(data.data)) {
@@ -115,22 +116,8 @@ const ModulesUpdateForm = ({ onSubmit, onCancel, initialValues }) => {
       };
       console.log("Données envoyées au backend (update):", payload);
 
-      const response = await fetch(
-        `http://127.0.0.1:8000/api/modules/${initialValues.id_module}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Erreur lors de la modification du module"
-        );
-      }
+      const response = await api.put(`/modules/${initialValues.id_module}`, payload);
+      const data = response.data;
 
       await onSubmit?.(data);
       toast({
