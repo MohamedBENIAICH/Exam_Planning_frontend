@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { CalendarIcon, Clock, Users, Building, Upload } from "lucide-react";
 import Spinner from "@/components/ui/spinner";
 import {
@@ -54,13 +54,13 @@ import {
 
 const formSchema = z.object({
   formation: z.string().min(1, "La formation est requise"),
-  filiere: z.string().min(1, "La filiÃ¨re est requise"),
+  filiere: z.string().min(1, "La filière est requise"),
   semester: z.string().min(1, "Le semestre est requis"),
   module: z.string().min(1, "Le module est requis"),
   date: z.date({
     required_error: "La date d'examen est requise",
   }),
-  startTime: z.string().min(1, "L'heure de dÃ©but est requise"),
+  startTime: z.string().min(1, "L'heure de début est requise"),
   endTime: z.string().min(1, "L'heure de fin est requise"),
   classrooms: z
     .array(z.union([z.string(), z.number()]))
@@ -68,7 +68,21 @@ const formSchema = z.object({
   supervisors: z.array(z.number()).optional(),
   professors: z.array(z.number()).min(1, "Au moins un professeur est requis"),
   students: z.array(z.string()),
-});
+}).refine(
+  (data) => {
+    if (!data.date || !data.startTime) return true;
+
+    const [hours, minutes] = data.startTime.split(":").map(Number);
+    const examDateTime = new Date(data.date);
+    examDateTime.setHours(hours, minutes, 0, 0);
+
+    return examDateTime >= new Date();
+  },
+  {
+    message: "La date et l'heure de l'examen ne peuvent pas être dans le passé",
+    path: ["date"], // Attach error to the date field
+  }
+);
 
 const ExamForm = ({
   exam,
@@ -338,79 +352,7 @@ const ExamForm = ({
     loadFormations();
   }, [toast]);
 
-  // Load available classrooms based on selected date and time
-  useEffect(() => {
-    const loadAvailableClassrooms = async () => {
-      const selectedDate = form.getValues("date");
-      const startTime = form.getValues("startTime");
-      const endTime = form.getValues("endTime");
 
-      if (selectedDate && startTime && endTime) {
-        const formattedDate = format(selectedDate, "yyyy-MM-dd");
-
-        try {
-          // First API call to get scheduled classroom IDs
-          const response = await api.get(
-            `/classrooms/search?date_examen=${formattedDate}&heure_debut=${startTime}&heure_fin=${endTime}`
-          );
-          const data = response.data;
-
-          if (data.status === "success") {
-            const scheduledClassroomIds = data.data.scheduled_classroom_ids;
-
-            // Debugging: Check the scheduled classroom IDs
-            console.log("Scheduled Classroom IDs:", scheduledClassroomIds);
-
-            // Ensure that scheduledClassroomIds is not empty before making the second API call
-            if (scheduledClassroomIds.length >= 0) {
-              // Second API call to get available classrooms
-              const availableResponse = await api.post(
-                "/classrooms/not-in-list",
-                {
-                  classroom_ids: scheduledClassroomIds,
-                }
-              );
-              const availableData = availableResponse.data;
-
-              if (availableData.status === "success") {
-                setAvailableClassrooms(availableData.data);
-              } else {
-                console.error(
-                  "Error fetching available classrooms:",
-                  availableData
-                );
-                toast({
-                  title: "Erreur",
-                  description: "Impossible de charger les salles disponibles",
-                  variant: "destructive",
-                });
-              }
-            } else {
-              console.warn(
-                "No scheduled classrooms found for the selected date and time."
-              );
-            }
-          } else {
-            console.error("Error fetching scheduled classrooms:", data);
-          }
-        } catch (error) {
-          console.error("Error loading classrooms:", error);
-          toast({
-            title: "Erreur",
-            description: "Impossible de charger les salles disponibles",
-            variant: "destructive",
-          });
-        }
-      }
-    };
-
-    loadAvailableClassrooms();
-  }, [
-    form.watch("date"),
-    form.watch("startTime"),
-    form.watch("endTime"),
-    toast,
-  ]);
 
   // Load departments
   useEffect(() => {
@@ -429,7 +371,7 @@ const ExamForm = ({
         } else {
           toast({
             title: "Erreur",
-            description: "Impossible de charger les dÃ©partements",
+            description: "Impossible de charger les départements",
             variant: "destructive",
           });
         }
@@ -437,7 +379,7 @@ const ExamForm = ({
         console.error("Error loading departments:", error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les dÃ©partements",
+          description: "Impossible de charger les départements",
           variant: "destructive",
         });
       } finally {
@@ -506,7 +448,7 @@ const ExamForm = ({
         console.error("Error loading filieres:", error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les filiÃ¨res",
+          description: "Impossible de charger les filières",
           variant: "destructive",
         });
       } finally {
@@ -587,7 +529,7 @@ const ExamForm = ({
         } else {
           toast({
             title: "Erreur",
-            description: "Impossible de charger les amphithÃ©Ã¢tres",
+            description: "Impossible de charger les amphithéâtres",
             variant: "destructive",
           });
         }
@@ -595,7 +537,7 @@ const ExamForm = ({
         console.error("Error loading amphitheaters:", error);
         toast({
           title: "Erreur",
-          description: "Impossible de charger les amphithÃ©Ã¢tres",
+          description: "Impossible de charger les amphithéâtres",
           variant: "destructive",
         });
       } finally {
@@ -793,8 +735,8 @@ const ExamForm = ({
       if (exam?.id) {
         result = await updateExam(exam.id, examData);
         toast({
-          title: "Examen mis Ã  jour",
-          description: `L'examen de ${values.module} a Ã©tÃ© mis Ã  jour avec succÃ¨s`,
+          title: "Examen mis à jour",
+          description: `L'examen de ${values.module} a été mis à jour avec succès`,
         });
 
         // Close the dialog immediately after exam update
@@ -804,8 +746,8 @@ const ExamForm = ({
       } else {
         result = await createExam(examData);
         toast({
-          title: "Examen crÃ©Ã©",
-          description: `L'examen de ${values.module} a Ã©tÃ© crÃ©Ã© avec succÃ¨s`,
+          title: "Examen créé",
+          description: `L'examen de ${values.module} a été créé avec succès`,
         });
         setExamId(result?.id || result?.data?.id);
 
@@ -841,14 +783,14 @@ const ExamForm = ({
           console.log("Assignment API response:", assignmentData);
           if (assignmentResponse.status === 200 || assignmentResponse.status === 201) {
             toast({
-              title: "Affectation rÃ©ussie",
+              title: "Affectation réussie",
               description:
-                "Les Ã©tudiants ont Ã©tÃ© assignÃ©s Ã  leurs salles et places.",
+                "Les étudiants ont été assignés à leurs salles et places.",
             });
           } else {
             throw new Error(
               assignmentData.message ||
-              "Erreur lors de l'affectation des Ã©tudiants."
+              "Erreur lors de l'affectation des étudiants."
             );
           }
         }
@@ -883,7 +825,7 @@ const ExamForm = ({
     console.error("Form validation errors:", errors);
     toast({
       title: "Erreur de validation",
-      description: "Veuillez vÃ©rifier tous les champs requis",
+      description: "Veuillez vérifier tous les champs requis",
       variant: "destructive",
     });
   };
@@ -931,8 +873,8 @@ const ExamForm = ({
     setShowImportCSV(false);
 
     toast({
-      title: "Ã‰tudiants importÃ©s",
-      description: `${importedStudents.length} Ã©tudiants ont Ã©tÃ© importÃ©s avec succÃ¨s`,
+      title: "Étudiants importés",
+      description: `${importedStudents.length} étudiants ont été importés avec succès`,
     });
   };
 
@@ -980,7 +922,7 @@ const ExamForm = ({
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="SÃ©lectionnez une formation" />
+                            <SelectValue placeholder="Sélectionnez une formation" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -1015,7 +957,7 @@ const ExamForm = ({
                   name="filiere"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>FiliÃ¨re</FormLabel>
+                      <FormLabel>Filière</FormLabel>
                       <Select
                         onValueChange={(value) => {
                           field.onChange(value);
@@ -1027,13 +969,13 @@ const ExamForm = ({
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="SÃ©lectionnez une filiÃ¨re" />
+                            <SelectValue placeholder="Sélectionnez une filière" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {loadingFilieres ? (
                             <div className="p-2 text-center text-slate-500">
-                              Chargement des filiÃ¨res...
+                              Chargement des filières...
                             </div>
                           ) : filieres.length > 0 ? (
                             filieres.map((filiere) => (
@@ -1047,8 +989,8 @@ const ExamForm = ({
                           ) : (
                             <div className="p-2 text-center text-slate-500">
                               {form.getValues("formation")
-                                ? "Aucune filiÃ¨re disponible pour cette formation"
-                                : "Veuillez d'abord sÃ©lectionner une formation"}
+                                ? "Aucune filière disponible pour cette formation"
+                                : "Veuillez d'abord sélectionner une formation"}
                             </div>
                           )}
                         </SelectContent>
@@ -1075,7 +1017,7 @@ const ExamForm = ({
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="SÃ©lectionnez un semestre" />
+                            <SelectValue placeholder="Sélectionnez un semestre" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -1112,7 +1054,7 @@ const ExamForm = ({
                       >
                         <FormControl>
                           <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="SÃ©lectionnez un module" />
+                            <SelectValue placeholder="Sélectionnez un module" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -1132,11 +1074,11 @@ const ExamForm = ({
                           ) : (
                             <div className="p-2 text-center text-slate-500">
                               {!form.getValues("formation")
-                                ? "Veuillez d'abord sÃ©lectionner une formation"
+                                ? "Veuillez d'abord sélectionner une formation"
                                 : !form.getValues("filiere")
-                                  ? "Veuillez d'abord sÃ©lectionner une filiÃ¨re"
+                                  ? "Veuillez d'abord sélectionner une filière"
                                   : !form.getValues("semester")
-                                    ? "Veuillez d'abord sÃ©lectionner un semestre"
+                                    ? "Veuillez d'abord sélectionner un semestre"
                                     : "Aucun module disponible pour cette combinaison"}
                             </div>
                           )}
@@ -1184,6 +1126,7 @@ const ExamForm = ({
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
+                            disabled={(date) => date < new Date().setHours(0, 0, 0, 0)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -1199,11 +1142,20 @@ const ExamForm = ({
                   name="startTime"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Heure de dÃ©but</FormLabel>
+                      <FormLabel>Heure de début</FormLabel>
                       <FormControl>
                         <div className="flex items-center">
                           <Clock className="mr-2 h-4 w-4 text-slate-400" />
-                          <Input type="time" {...field} className="bg-white" />
+                          <Input
+                            type="time"
+                            {...field}
+                            className="bg-white"
+                            min={
+                              form.getValues("date") && isSameDay(form.getValues("date"), new Date())
+                                ? format(new Date(), "HH:mm")
+                                : undefined
+                            }
+                          />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -1221,7 +1173,12 @@ const ExamForm = ({
                       <FormControl>
                         <div className="flex items-center">
                           <Clock className="mr-2 h-4 w-4 text-slate-400" />
-                          <Input type="time" {...field} className="bg-white" />
+                          <Input
+                            type="time"
+                            {...field}
+                            className="bg-white"
+                            min={form.getValues("startTime")}
+                          />
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -1240,7 +1197,7 @@ const ExamForm = ({
                   <FormItem>
                     <FormLabel className="flex items-center gap-1 text-lg font-medium mb-4">
                       <Users className="h-5 w-5" />
-                      Ã‰tudiants
+                      Étudiants
                     </FormLabel>
                     <Button
                       variant="outline"
@@ -1250,8 +1207,8 @@ const ExamForm = ({
                     >
                       <Upload className="h-4 w-4" />
                       {selectedStudentsLocal.length === 0
-                        ? "Importer la liste d'Ã©tudiants (CSV)"
-                        : `${selectedStudentsLocal.length} Ã‰tudiants importÃ©s`}
+                        ? "Importer la liste d'étudiants (CSV)"
+                        : `${selectedStudentsLocal.length} Étudiants importés`}
                     </Button>
 
                     {/* Direct import dialog */}
@@ -1262,7 +1219,7 @@ const ExamForm = ({
                       <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
                         <DialogHeader>
                           <DialogTitle>
-                            Importer la liste d'Ã©tudiants
+                            Importer la liste d'étudiants
                           </DialogTitle>
                         </DialogHeader>
                         <div className="flex-1 overflow-auto">
@@ -1301,7 +1258,7 @@ const ExamForm = ({
                         onClick={() => setSelectedClassroomType("amphi")}
                         className="flex-1"
                       >
-                        AmphithÃ©Ã¢tres
+                        Amphithéâtres
                       </Button>
                       <Button
                         type="button"
@@ -1321,7 +1278,7 @@ const ExamForm = ({
                       <div className="mt-2 space-y-2 max-h-60 overflow-y-auto pr-2 py-2">
                         {loadingAmphitheaters ? (
                           <div className="text-center text-slate-500 py-2">
-                            Chargement des amphithÃ©Ã¢tres...
+                            Chargement des amphithéâtres...
                           </div>
                         ) : amphitheaters.length > 0 ? (
                           amphitheaters.map((amphi) => (
@@ -1352,7 +1309,7 @@ const ExamForm = ({
                                   htmlFor={`amphi-${amphi.id}`}
                                   className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                 >
-                                  {amphi.nom_du_local} - CapacitÃ©:{" "}
+                                  {amphi.nom_du_local} - Capacité:{" "}
                                   {amphi.capacite}
                                 </label>
                               </div>
@@ -1363,7 +1320,7 @@ const ExamForm = ({
                           ))
                         ) : (
                           <div className="text-center text-slate-500 py-2">
-                            Aucun amphithÃ©Ã¢tre disponible
+                            Aucun amphithéâtre disponible
                           </div>
                         )}
                       </div>
@@ -1374,7 +1331,7 @@ const ExamForm = ({
                         {/* Department Selection for Classrooms */}
                         <div>
                           <h4 className="text-sm font-medium text-slate-700 mb-2">
-                            SÃ©lectionnez un dÃ©partement
+                            Sélectionnez un département
                           </h4>
                           <Select
                             onValueChange={(value) =>
@@ -1383,12 +1340,12 @@ const ExamForm = ({
                             value={selectedClassroomDepartment}
                           >
                             <SelectTrigger className="w-full bg-white">
-                              <SelectValue placeholder="SÃ©lectionnez un dÃ©partement" />
+                              <SelectValue placeholder="Sélectionnez un département" />
                             </SelectTrigger>
                             <SelectContent>
                               {loadingDepartments ? (
                                 <div className="p-2 text-center text-slate-500">
-                                  Chargement des dÃ©partements...
+                                  Chargement des départements...
                                 </div>
                               ) : departments.length > 0 ? (
                                 departments.map((department) => (
@@ -1401,7 +1358,7 @@ const ExamForm = ({
                                 ))
                               ) : (
                                 <div className="p-2 text-center text-slate-500">
-                                  Aucun dÃ©partement disponible
+                                  Aucun département disponible
                                 </div>
                               )}
                             </SelectContent>
@@ -1456,7 +1413,7 @@ const ExamForm = ({
                                         htmlFor={`classroom-${classroom.id}`}
                                         className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                                       >
-                                        {classroom.nom_du_local} - CapacitÃ©:{" "}
+                                        {classroom.nom_du_local} - Capacité:{" "}
                                         {classroom.capacite}
                                       </label>
                                     </div>
@@ -1467,7 +1424,7 @@ const ExamForm = ({
                                 ))
                             ) : (
                               <div className="text-center text-slate-500 py-2">
-                                Aucune salle disponible pour ce dÃ©partement Ã 
+                                Aucune salle disponible pour ce département à
                                 cette date et heure
                               </div>
                             )}
@@ -1480,7 +1437,7 @@ const ExamForm = ({
                     {field.value.length > 0 && (
                       <div className="mt-6 pt-4 border-t border-slate-200">
                         <h4 className="text-sm font-medium text-slate-700 mb-3">
-                          Locaux sÃ©lectionnÃ©s ({field.value.length})
+                          Locaux sélectionnés ({field.value.length})
                         </h4>
                         <div className="space-y-2">
                           {field.value.map((selectedId) => {
@@ -1501,7 +1458,7 @@ const ExamForm = ({
                                 <div className="flex items-center gap-2">
                                   <Building className="h-4 w-4 text-slate-500" />
                                   <span className="text-sm">
-                                    {selectedItem.nom_du_local} - CapacitÃ©:{" "}
+                                    {selectedItem.nom_du_local} - Capacité:{" "}
                                     {selectedItem.capacite}
                                   </span>
                                 </div>
@@ -1549,14 +1506,14 @@ const ExamForm = ({
                     <div className="space-y-4">
                       <div>
                         <h4 className="text-sm font-medium text-slate-700 mb-2">
-                          DÃ©partement
+                          Département
                         </h4>
                         <Select
                           value={selectedDepartment}
                           onValueChange={setSelectedDepartment}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="SÃ©lectionner un dÃ©partement" />
+                            <SelectValue placeholder="Sélectionner un département" />
                           </SelectTrigger>
                           <SelectContent>
                             {departments.map((dept) => (
@@ -1716,7 +1673,7 @@ const ExamForm = ({
               form.getValues("supervisors")?.length > 0) && (
                 <div className="mt-6 pt-4 border-t border-slate-200">
                   <h4 className="text-sm font-medium text-slate-700 mb-3">
-                    Personnel sÃ©lectionnÃ©
+                    Personnel sélectionné
                   </h4>
                   <div className="space-y-2">
                     {/* Selected Professors */}
@@ -1844,7 +1801,7 @@ const ExamForm = ({
                   Chargement...
                 </div>
               ) : exam ? (
-                "Mettre Ã  jour l'examen"
+                "Mettre à jour l'examen"
               ) : (
                 "Planifier l'examen"
               )}
