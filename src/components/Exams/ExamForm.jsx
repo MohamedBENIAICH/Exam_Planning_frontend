@@ -889,6 +889,32 @@ const ExamForm = ({
     setAssignments(data.data.assignments); // or adjust as needed
   };
 
+  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0"));
+  const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0")); // 5-minute intervals
+
+  const getFilteredHours = (dateStr) => {
+    if (!dateStr) return hours;
+    const date = new Date(dateStr);
+    if (isSameDay(date, new Date())) {
+      const currentHour = new Date().getHours();
+      return hours.filter((h) => parseInt(h) >= currentHour);
+    }
+    return hours;
+  };
+
+  const getFilteredMinutes = (dateStr, selectedHour) => {
+    if (!dateStr || !selectedHour) return minutes;
+    const date = new Date(dateStr);
+    if (isSameDay(date, new Date())) {
+      const currentHour = new Date().getHours();
+      if (parseInt(selectedHour) === currentHour) {
+        const currentMinute = new Date().getMinutes();
+        return minutes.filter((m) => parseInt(m) >= currentMinute);
+      }
+    }
+    return minutes;
+  };
+
   return (
     <Form {...form}>
       <form
@@ -1140,50 +1166,116 @@ const ExamForm = ({
                 <FormField
                   control={form.control}
                   name="startTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Heure de début</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center">
-                          <Clock className="mr-2 h-4 w-4 text-slate-400" />
-                          <Input
-                            type="time"
-                            {...field}
-                            className="bg-white"
-                            min={
-                              form.getValues("date") && isSameDay(form.getValues("date"), new Date())
-                                ? format(new Date(), "HH:mm")
-                                : undefined
-                            }
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const [h, m] = (field.value || "09:00").split(":");
+                    return (
+                      <FormItem>
+                        <FormLabel>Heure de début</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center gap-2">
+                            <Clock className="mr-2 h-4 w-4 text-slate-400" />
+                            <div className="flex gap-1">
+                              <Select
+                                value={h}
+                                onValueChange={(val) => field.onChange(`${val}:${m}`)}
+                              >
+                                <SelectTrigger className="w-[70px] bg-white">
+                                  <SelectValue placeholder="HH" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {getFilteredHours(form.watch("date")).map((hour) => (
+                                    <SelectItem key={hour} value={hour}>
+                                      {hour}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <span className="self-center">:</span>
+                              <Select
+                                value={m}
+                                onValueChange={(val) => field.onChange(`${h}:${val}`)}
+                              >
+                                <SelectTrigger className="w-[70px] bg-white">
+                                  <SelectValue placeholder="MM" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {getFilteredMinutes(form.watch("date"), h).map(
+                                    (minute) => (
+                                      <SelectItem key={minute} value={minute}>
+                                        {minute}
+                                      </SelectItem>
+                                    )
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 {/* endTime Field */}
                 <FormField
                   control={form.control}
                   name="endTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Heure de fin</FormLabel>
-                      <FormControl>
-                        <div className="flex items-center">
-                          <Clock className="mr-2 h-4 w-4 text-slate-400" />
-                          <Input
-                            type="time"
-                            {...field}
-                            className="bg-white"
-                            min={form.getValues("startTime")}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const [h, m] = (field.value || "11:00").split(":");
+                    const [startH, startM] = (
+                      form.watch("startTime") || "09:00"
+                    ).split(":");
+
+                    const filteredEndHours = hours.filter(
+                      (hour) => parseInt(hour) >= parseInt(startH)
+                    );
+
+                    return (
+                      <FormItem>
+                        <FormLabel>Heure de fin</FormLabel>
+                        <FormControl>
+                          <div className="flex items-center gap-2">
+                            <Clock className="mr-2 h-4 w-4 text-slate-400" />
+                            <div className="flex gap-1">
+                              <Select
+                                value={h}
+                                onValueChange={(val) => field.onChange(`${val}:${m}`)}
+                              >
+                                <SelectTrigger className="w-[70px] bg-white">
+                                  <SelectValue placeholder="HH" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {filteredEndHours.map((hour) => (
+                                    <SelectItem key={hour} value={hour}>
+                                      {hour}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <span className="self-center">:</span>
+                              <Select
+                                value={m}
+                                onValueChange={(val) => field.onChange(`${h}:${val}`)}
+                              >
+                                <SelectTrigger className="w-[70px] bg-white">
+                                  <SelectValue placeholder="MM" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {minutes.map((minute) => (
+                                    <SelectItem key={minute} value={minute}>
+                                      {minute}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </div>
             </div>
